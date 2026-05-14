@@ -1,0 +1,114 @@
+config("mira_public_config") {
+  include_dirs = [ "include" ]
+}
+
+draw_wgsl = "src/render/webgpu/shaders/draw.wgsl"
+
+# Keep shaders as WGSL files; GN embeds them as C++ constants for wasm
+action("mira_shader_headers") {
+  script = "tools/embed_wgsl.py"
+
+  sources = [ draw_wgsl ]
+  outputs = [ "$target_gen_dir/draw_shader.hpp" ]
+
+  args = [
+    rebase_path(draw_wgsl, root_build_dir),
+    rebase_path(outputs[0], root_build_dir),
+    "mira",
+    "kDrawShaderSource",
+  ]
+}
+
+source_set("mira_core") {
+  sources = [
+    "include/mira/base/table.hpp",
+    "include/mira/draw/draw.hpp",
+    "include/mira/types.hpp",
+    "src/draw/draw.cc",
+  ]
+
+  public_configs = [ ":mira_public_config" ]
+}
+
+executable("mira_tests") {
+  testonly = true
+
+  sources = [
+    "tests/draw_test.cc",
+    "tests/test_support.hpp",
+  ]
+
+  deps = [ ":mira_core" ]
+}
+
+executable("mira_draw_bench") {
+  sources = [ "bench/draw_bench.cc" ]
+
+  deps = [ ":mira_core" ]
+}
+
+executable("mira") {
+  sources = [
+    "include/mira/render/dawn_probe.hpp",
+    "src/app/main.cc",
+    "src/render/dawn_probe.cc",
+  ]
+
+  deps = [
+    ":mira_core",
+    "//include/dawn:cpp_headers",
+    "//src/dawn/native:webgpu_dawn",
+  ]
+}
+
+if (is_wasm) {
+  executable("mira_web") {
+    sources = [
+      "include/mira/web/web.hpp",
+      "$target_gen_dir/draw_shader.hpp",
+      "src/web/main.cc",
+      "src/web/web.cc",
+    ]
+
+    include_dirs = [ target_gen_dir ]
+
+    deps = [
+      ":mira_core",
+      ":mira_shader_headers",
+      "//src/emdawnwebgpu:emdawnwebgpu",
+    ]
+
+    ldflags = [
+      "-sALLOW_MEMORY_GROWTH=1",
+      "-sASYNCIFY",
+      "-sEXIT_RUNTIME=0",
+      "--shell-file=" + rebase_path("web/index.html", root_build_dir),
+    ]
+  }
+} else {
+  group("mira_web") {
+  }
+}
+
+group("all") {
+  testonly = true
+
+  deps = [
+    ":mira",
+    ":mira_draw_bench",
+    ":mira_tests",
+  ]
+}
+
+group("web") {
+  deps = [ ":mira_web(//build/toolchain/wasm:wasm)" ]
+}
+
+group("gn_root") {
+  testonly = true
+
+  deps = [
+    ":all",
+    ":web",
+  ]
+}

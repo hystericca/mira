@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "type": "module",
+  "packageManager": "ant@0.11.0",
+  "scripts": {
+    "check": "make check",
+    "web": "make web",
+    "release": "make release",
+    "serve": "MIRA_WEB_ROOT=${MIRA_WEB_ROOT:-$HOME/Developer/dawn/out/mira-debug/wasm} ant tools/serve.ts",
+    "clean": "make clean"
+  },
+  "devDependencies": {
+    "@typescript/native-preview": "7.0.0-dev.20260511.1",
+    "@types/node": "^25.6.2"
+  }
+}

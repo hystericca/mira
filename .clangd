@@ -1,0 +1,21 @@
+CompileFlags:
+  CompilationDatabase: .
+  Remove:
+    - -fsanitize=*
+    - -fsanitize-trap=*
+    - -fsanitize-ignore-for-ubsan-feature=*
+    - -fdiagnostics-show-inlining-chain
+    - -fno-lifetime-dse
+    - -gseparate-dwarf
+    - -gsimple-template-names
+    - -mllvm
+    - -Xclang
+    - -add-plugin
+    - -add-plugin=*
+    - -plugin-arg-unsafe-buffers
+    - -plugin-arg-unsafe-buffers=*
+    - unsafe-buffers
+    - ../../unsafe_buffers_paths.txt
+    - -Wunsafe-buffer-usage
+    - -Wno-error=unsafe-buffer-usage
+    - -Wno-unsafe-buffer-usage-in-static-sized-array
