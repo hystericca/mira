@@ -60,6 +60,50 @@ template <typename T, usize Capacity> class Table {
         return true;
     }
 
+    [[nodiscard]] constexpr b8 insert(usize index, const T &value) {
+        if (size_ >= Capacity) {
+            overflowed = true;
+            return false;
+        }
+        if (index > size_) {
+            index = size_;
+        }
+        for (usize move_index = size_; move_index > index; --move_index) {
+            values_[move_index] = std::move(values_[move_index - 1]);
+        }
+        values_[index] = value;
+        ++size_;
+        return true;
+    }
+
+    [[nodiscard]] constexpr b8 insert(usize index, T &&value) {
+        if (size_ >= Capacity) {
+            overflowed = true;
+            return false;
+        }
+        if (index > size_) {
+            index = size_;
+        }
+        for (usize move_index = size_; move_index > index; --move_index) {
+            values_[move_index] = std::move(values_[move_index - 1]);
+        }
+        values_[index] = std::move(value);
+        ++size_;
+        return true;
+    }
+
+    [[nodiscard]] constexpr b8 erase(usize index) {
+        if (index >= size_) {
+            return false;
+        }
+        for (usize move_index = index; move_index + 1 < size_; ++move_index) {
+            values_[move_index] = std::move(values_[move_index + 1]);
+        }
+        values_[size_ - 1] = {};
+        --size_;
+        return true;
+    }
+
     [[nodiscard]] constexpr T &operator[](usize index) { return values_[index]; }
     [[nodiscard]] constexpr const T &operator[](usize index) const { return values_[index]; }
 

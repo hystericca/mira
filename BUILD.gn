@@ -26,7 +26,13 @@ source_set("mira_core") {
     "include/mira/gui/gui.hpp",
     "include/mira/types.hpp",
     "src/draw/draw.cc",
-    "src/gui/gui.cc",
+    "src/gui/frame.cc",
+    "src/gui/layers.cc",
+    "src/gui/menu_bar.cc",
+    "src/gui/private.hpp",
+    "src/gui/state.cc",
+    "src/gui/toolbar.cc",
+    "src/gui/workspace.cc",
   ]
 
   public_configs = [ ":mira_public_config" ]

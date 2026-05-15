@@ -10,7 +10,7 @@ namespace mira {
 
 constexpr usize kMaxRects = 2048;
 constexpr usize kMaxGlyphs = 2048;
-constexpr usize kMaxIcons = 256;
+constexpr usize kMaxIcons = 8192;
 
 enum class Tone : u8 {
     kBlack,
@@ -25,6 +25,24 @@ enum class Icon : u8 {
     kRect,
     kZoom,
     kErase,
+    kSize1,
+    kSize2,
+    kSize3,
+    kSize4,
+    kSize5,
+    kSize6,
+    kSize7,
+    kSize8,
+    kBrushSize1,
+    kBrushSize2,
+    kBrushSize3,
+    kBrushSize4,
+    kBrushSize5,
+    kBrushSize6,
+    kBrushSize7,
+    kBrushSize8,
+    kLockOpen,
+    kLockClosed,
 };
 
 struct Rect {

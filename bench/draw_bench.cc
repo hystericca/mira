@@ -84,14 +84,14 @@ auto main() -> int {
     mira::DrawList list;
     mira::GuiState gui;
     const mira::Screen screen = mira::screen_for(kWidth, kHeight);
-    mira::build_gui_frame(&gui, screen, {}, &list);
+    mira::guiframe(&gui, screen, {}, &list);
 
     g_allocation_calls.store(0, std::memory_order_relaxed);
     g_allocation_bytes.store(0, std::memory_order_relaxed);
     g_count_allocations.store(true, std::memory_order_relaxed);
     const auto start = std::chrono::steady_clock::now();
     for (mira::i32 frame = 0; frame < kFrames; ++frame) {
-        mira::build_gui_frame(&gui, screen, {}, &list);
+        mira::guiframe(&gui, screen, {}, &list);
     }
     const auto end = std::chrono::steady_clock::now();
     g_count_allocations.store(false, std::memory_order_relaxed);
