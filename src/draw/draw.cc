@@ -132,7 +132,7 @@ b8 add_text(DrawList *list, std::string_view text, f32 x, f32 y, Tone tone, f32 
 }
 
 b8 add_icon(DrawList *list, Icon icon, f32 x, f32 y, Tone tone, f32 scale) {
-    const f32 clamped_scale = std::max(1.0F, scale);
+    const f32 clamped_scale = std::max(0.125F, scale);
     return list->icons.push({
         .x = x,
         .y = y,
