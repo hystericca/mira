@@ -35,19 +35,12 @@ u32 DrawList::overflow_count() const {
 }
 
 Screen screen_for(i32 width, i32 height) {
-    // Layout uses window pixels. Drawing uses this smaller screen.
     const i32 clamped_width = std::max(1, width);
     const i32 clamped_height = std::max(1, height);
-    i32 scale = 1;
-    if (clamped_width / 3 >= 560 && clamped_height / 3 >= 360) {
-        scale = 3;
-    } else if (clamped_width / 2 >= 560 && clamped_height / 2 >= 360) {
-        scale = 2;
-    }
     return {
-        .scale = scale,
-        .width = (clamped_width + scale - 1) / scale,
-        .height = (clamped_height + scale - 1) / scale,
+        .scale = 1,
+        .width = clamped_width,
+        .height = clamped_height,
     };
 }
 
@@ -95,12 +88,15 @@ void build_demo(DrawList *list, Screen screen) {
     list->clear();
     const f32 width = static_cast<f32>(screen.width);
     const f32 height = static_cast<f32>(screen.height);
-    const f32 inset_x = std::min(8.0F, width * 0.5F);
-    const f32 inset_y = std::min(8.0F, height * 0.5F);
-    const f32 graph_x = std::min(18.0F, width * 0.25F);
+    const f32 unit = std::max(1.0F, std::min(width / 560.0F, height / 360.0F));
+    const f32 line = std::max(1.0F, 1.5F * unit);
+    const f32 text_scale = std::max(1.0F, std::round(unit));
+    const f32 inset_x = std::min(8.0F * unit, width * 0.5F);
+    const f32 inset_y = std::min(8.0F * unit, height * 0.5F);
+    const f32 graph_x = std::min(18.0F * unit, width * 0.25F);
     const f32 graph_y = std::max(50.0F, height * 0.46F);
     const f32 graph_width = std::max(1.0F, width - (graph_x * 2.0F));
-    const f32 graph_height = std::max(16.0F, height - graph_y - inset_y - 10.0F);
+    const f32 graph_height = std::max(16.0F * unit, height - graph_y - inset_y - (10.0F * unit));
 
     (void)add_clip(list, {.x0 = 0.0F, .y0 = 0.0F, .x1 = width, .y1 = height});
     (void)add_draw(list, DrawKind::kFill, 0, 0,
@@ -110,32 +106,39 @@ void build_demo(DrawList *list, Screen screen) {
                     .y = inset_y,
                     .width = std::max(0.0F, width - (inset_x * 2.0F)),
                     .height = std::max(0.0F, height - (inset_y * 2.0F))},
-                   1.0F);
+                   std::max(1.0F, unit));
 
     for (u32 index = 0; index < 7; ++index) {
-        const f32 x = inset_x + 16.0F + (static_cast<f32>(index) * 13.0F);
+        const f32 x = inset_x + (16.0F * unit) + (static_cast<f32>(index) * 13.0F * unit);
         const f32 shade = static_cast<f32>(index + 1U) * (255.0F / 8.0F);
-        (void)add_draw(list, DrawKind::kFill, 0, static_cast<u8>(shade),
-                       {.x = x, .y = inset_y + 36.0F, .width = 10.0F, .height = 18.0F});
+        (void)add_draw(
+            list, DrawKind::kFill, 0, static_cast<u8>(shade),
+            {.x = x, .y = inset_y + (36.0F * unit), .width = 10.0F * unit, .height = 18.0F * unit});
     }
 
     (void)add_draw(list, DrawKind::kFill, 0, 142,
-                   {.x = inset_x + 22.0F, .y = inset_y + 56.0F, .width = 56.0F, .height = 34.0F});
+                   {.x = inset_x + (22.0F * unit),
+                    .y = inset_y + (56.0F * unit),
+                    .width = 56.0F * unit,
+                    .height = 34.0F * unit});
     (void)add_draw(list, DrawKind::kStroke, 0, 224,
-                   {.x = inset_x + 92.0F, .y = inset_y + 56.0F, .width = 54.0F, .height = 34.0F},
-                   1.4F);
+                   {.x = inset_x + (92.0F * unit),
+                    .y = inset_y + (56.0F * unit),
+                    .width = 54.0F * unit,
+                    .height = 34.0F * unit},
+                   line);
     (void)add_draw(list, DrawKind::kDash, 0, 210,
-                   {.x = inset_x + 24.0F,
-                    .y = inset_y + 112.0F,
+                   {.x = inset_x + (24.0F * unit),
+                    .y = inset_y + (112.0F * unit),
                     .width = std::max(20.0F, width * 0.34F),
-                    .height = 28.0F},
-                   1.5F, 9.0F);
+                    .height = 28.0F * unit},
+                   line, 9.0F * unit);
 
     (void)add_draw(list, DrawKind::kFill, 0, 38,
                    {.x = graph_x, .y = graph_y, .width = graph_width, .height = graph_height});
     (void)add_draw(list, DrawKind::kStroke, 0, 199,
                    {.x = graph_x, .y = graph_y, .width = graph_width, .height = graph_height},
-                   1.0F);
+                   std::max(1.0F, unit));
 
     const usize graph_offset = list->samples.size();
     const u32 graph_count = static_cast<u32>(
@@ -153,14 +156,17 @@ void build_demo(DrawList *list, Screen screen) {
     const u32 graph_data =
         (static_cast<u32>(graph_offset) & 0xFFFFU) | ((graph_count & 0xFFFFU) << 16U);
     (void)add_draw(list, DrawKind::kGraph, 0, 240,
-                   {.x = graph_x, .y = graph_y, .width = graph_width, .height = graph_height}, 1.5F,
+                   {.x = graph_x, .y = graph_y, .width = graph_width, .height = graph_height}, line,
                    0.0F, graph_data);
 
     const TextRange text = add_text(list, "MIRA");
     const u32 data0 = (text.offset & 0xFFFFU) | (static_cast<u32>(text.length) << 16U);
     (void)add_draw(list, DrawKind::kText, 0, 255,
-                   {.x = inset_x + 18.0F, .y = inset_y + 15.0F, .width = 24.0F, .height = 7.0F},
-                   1.0F, 0.0F, data0);
+                   {.x = inset_x + (18.0F * unit),
+                    .y = inset_y + (15.0F * unit),
+                    .width = 24.0F * text_scale,
+                    .height = 7.0F * text_scale},
+                   text_scale, 0.0F, data0);
 }
 
 } // namespace mira

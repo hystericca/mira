@@ -23,10 +23,10 @@ auto main() -> int {
     const mira::Screen normal = mira::screen_for(1120, 720);
     const mira::Screen large = mira::screen_for(1800, 1200);
     MIRA_TEST(small.scale == 1);
-    MIRA_TEST(normal.scale == 2);
-    MIRA_TEST(normal.width == 560);
-    MIRA_TEST(normal.height == 360);
-    MIRA_TEST(large.scale == 3);
+    MIRA_TEST(normal.scale == 1);
+    MIRA_TEST(normal.width == 1120);
+    MIRA_TEST(normal.height == 720);
+    MIRA_TEST(large.scale == 1);
 
     mira::Table<mira::i32, 2> table;
     MIRA_TEST(table.push(1));

@@ -109,7 +109,7 @@ auto main() -> int {
         return 1;
     }
 
-    PrintMetric("mira_draw_bench_version", 2);
+    PrintMetric("mira_draw_bench_version", 3);
     PrintMetric("frames", kFrames);
     PrintMetric("cpu_frame_us", frame_us);
     PrintMetric("upload_bytes_per_frame", list.upload_bytes());
