@@ -1,9 +1,7 @@
 #pragma once
 
-#include "mira/draw/draw.hpp"
+#include "mira/gui/gui.hpp"
 #include "mira/types.hpp"
-
-#include <array>
 
 #include <emscripten/html5.h>
 #include <webgpu/webgpu_cpp.h>
@@ -26,19 +24,24 @@ class Web {
         f32 height = 1.0F;
         f32 screen_width = 1.0F;
         f32 screen_height = 1.0F;
-        u32 draw_count = 0;
-        u32 clip_count = 0;
-        u32 sample_count = 0;
-        u32 _pad = 0;
+        u32 rect_count = 0;
+        u32 glyph_count = 0;
+        u32 icon_count = 0;
+        u32 _pad1 = 0;
     };
     static_assert(sizeof(Frame) == 32);
 
     [[nodiscard]] static auto read_canvas_size() -> CanvasPixelSize;
     static auto on_resize(int, const EmscriptenUiEvent *, void *user_data) -> bool;
+    static auto on_mouse_move(int, const EmscriptenMouseEvent *event, void *user_data) -> bool;
+    static auto on_mouse_down(int, const EmscriptenMouseEvent *event, void *user_data) -> bool;
+    static auto on_mouse_up(int, const EmscriptenMouseEvent *event, void *user_data) -> bool;
     static void on_device_lost(const wgpu::Device &, wgpu::DeviceLostReason, wgpu::StringView,
                                Web *app);
     static void on_error(const wgpu::Device &, wgpu::ErrorType, wgpu::StringView, Web *app);
 
+    void install_input();
+    void push_mouse_event(InputKind kind, const EmscriptenMouseEvent &event);
     [[nodiscard]] auto choose_surface() -> b8;
     [[nodiscard]] auto resize() -> b8;
     [[nodiscard]] auto make_pipeline() -> b8;
@@ -51,16 +54,18 @@ class Web {
     wgpu::Queue queue_;
     wgpu::Surface surface_;
     wgpu::Buffer uniform_buffer_;
-    wgpu::Buffer draw_buffer_;
-    wgpu::Buffer clip_buffer_;
-    wgpu::Buffer text_buffer_;
-    wgpu::Buffer sample_buffer_;
+    wgpu::Buffer rect_buffer_;
+    wgpu::Buffer glyph_buffer_;
+    wgpu::Buffer icon_buffer_;
     wgpu::BindGroupLayout bind_group_layout_;
     wgpu::BindGroup bind_group_;
-    wgpu::RenderPipeline pipeline_;
+    wgpu::RenderPipeline rect_pipeline_;
+    wgpu::RenderPipeline glyph_pipeline_;
+    wgpu::RenderPipeline icon_pipeline_;
+    GuiState gui_;
+    Table<InputEvent, kMaxInputEvents> input_events_;
     DrawList draws_;
     Screen screen_;
-    std::array<u32, kMaxTextWords> text_words_ = {};
     wgpu::TextureFormat surface_format_ = wgpu::TextureFormat::BGRA8Unorm;
     wgpu::PresentMode present_mode_ = wgpu::PresentMode::Fifo;
     u32 width_ = 0;
@@ -68,6 +73,7 @@ class Web {
     u32 surface_error_count_ = 0;
     u32 surface_skip_count_ = 0;
     u32 uncaptured_error_count_ = 0;
+    u8 startup_frames_ = 8;
     b8 needs_configure_ = true;
     b8 needs_canvas_read_ = true;
     b8 draw_dirty_ = true;

@@ -13,10 +13,9 @@ namespace mira {
 namespace {
 
 constexpr char kCanvasSelector[] = "#canvas";
-constexpr usize kDrawBufferBytes = kMaxDraws * sizeof(Draw);
-constexpr usize kClipBufferBytes = kMaxClips * sizeof(Clip);
-constexpr usize kTextBufferBytes = kMaxTextWords * sizeof(u32);
-constexpr usize kSampleBufferBytes = kMaxSamples * sizeof(Sample);
+constexpr usize kRectBufferBytes = kMaxRects * sizeof(RectDraw);
+constexpr usize kGlyphBufferBytes = kMaxGlyphs * sizeof(GlyphDraw);
+constexpr usize kIconBufferBytes = kMaxIcons * sizeof(IconDraw);
 
 [[nodiscard]] auto prefer_format(const wgpu::SurfaceCapabilities &capabilities)
     -> wgpu::TextureFormat {
@@ -38,10 +37,10 @@ constexpr usize kSampleBufferBytes = kMaxSamples * sizeof(Sample);
     return capabilities.presentModes[0];
 }
 
-[[nodiscard]] auto make_buffer(const wgpu::Device &device, usize size) -> wgpu::Buffer {
+[[nodiscard]] auto make_vertex_buffer(const wgpu::Device &device, usize size) -> wgpu::Buffer {
     wgpu::BufferDescriptor descriptor = {};
     descriptor.size = size;
-    descriptor.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
+    descriptor.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
     return device.CreateBuffer(&descriptor);
 }
 
@@ -101,12 +100,31 @@ auto Web::init() -> b8 {
     }
 
     emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, false, &Web::on_resize);
-    return resize() && make_pipeline();
+    install_input();
+    if (!resize()) {
+        return false;
+    }
+    if (!make_pipeline()) {
+        return false;
+    }
+    return true;
 }
 
 void Web::frame() {
-    if (device_lost_ || !resize() || pipeline_ == nullptr || bind_group_ == nullptr ||
-        !upload_draws()) {
+    if (startup_frames_ != 0) {
+        --startup_frames_;
+        needs_canvas_read_ = true;
+        draw_dirty_ = true;
+    }
+
+    if (device_lost_ || !resize() || rect_pipeline_ == nullptr || glyph_pipeline_ == nullptr ||
+        icon_pipeline_ == nullptr || bind_group_ == nullptr) {
+        return;
+    }
+    if (!draw_dirty_) {
+        return;
+    }
+    if (!upload_draws()) {
         return;
     }
 
@@ -119,6 +137,7 @@ void Web::frame() {
     wgpu::TextureView view = surface_texture.texture.CreateView();
     if (view == nullptr) {
         ++surface_error_count_;
+        draw_dirty_ = true;
         return;
     }
 
@@ -126,7 +145,7 @@ void Web::frame() {
     color_attachment.view = view;
     color_attachment.loadOp = wgpu::LoadOp::Clear;
     color_attachment.storeOp = wgpu::StoreOp::Store;
-    color_attachment.clearValue = wgpu::Color{0.055, 0.075, 0.060, 1.0};
+    color_attachment.clearValue = wgpu::Color{1.0, 1.0, 1.0, 1.0};
 
     wgpu::RenderPassDescriptor render_pass = {};
     render_pass.colorAttachmentCount = 1;
@@ -135,22 +154,38 @@ void Web::frame() {
     wgpu::CommandEncoder encoder = device_.CreateCommandEncoder();
     if (encoder == nullptr) {
         ++surface_error_count_;
+        draw_dirty_ = true;
         return;
     }
 
     wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&render_pass);
     if (pass == nullptr) {
         ++surface_error_count_;
+        draw_dirty_ = true;
         return;
     }
-    pass.SetPipeline(pipeline_);
     pass.SetBindGroup(0, bind_group_);
-    pass.Draw(6);
+    if (!draws_.rects.empty()) {
+        pass.SetPipeline(rect_pipeline_);
+        pass.SetVertexBuffer(0, rect_buffer_, 0, draws_.rects.byte_size());
+        pass.Draw(6, static_cast<u32>(draws_.rects.size()));
+    }
+    if (!draws_.glyphs.empty()) {
+        pass.SetPipeline(glyph_pipeline_);
+        pass.SetVertexBuffer(0, glyph_buffer_, 0, draws_.glyphs.byte_size());
+        pass.Draw(6, static_cast<u32>(draws_.glyphs.size()));
+    }
+    if (!draws_.icons.empty()) {
+        pass.SetPipeline(icon_pipeline_);
+        pass.SetVertexBuffer(0, icon_buffer_, 0, draws_.icons.byte_size());
+        pass.Draw(6, static_cast<u32>(draws_.icons.size()));
+    }
     pass.End();
 
     wgpu::CommandBuffer commands = encoder.Finish();
     if (commands == nullptr) {
         ++surface_error_count_;
+        draw_dirty_ = true;
         return;
     }
     queue_.Submit(1, &commands);
@@ -176,6 +211,30 @@ auto Web::on_resize(int, const EmscriptenUiEvent *, void *user_data) -> bool {
     return false;
 }
 
+auto Web::on_mouse_move(int, const EmscriptenMouseEvent *event, void *user_data) -> bool {
+    auto *app = static_cast<Web *>(user_data);
+    if (app != nullptr && event != nullptr) {
+        app->push_mouse_event(InputKind::kMouseMove, *event);
+    }
+    return false;
+}
+
+auto Web::on_mouse_down(int, const EmscriptenMouseEvent *event, void *user_data) -> bool {
+    auto *app = static_cast<Web *>(user_data);
+    if (app != nullptr && event != nullptr) {
+        app->push_mouse_event(InputKind::kMouseDown, *event);
+    }
+    return true;
+}
+
+auto Web::on_mouse_up(int, const EmscriptenMouseEvent *event, void *user_data) -> bool {
+    auto *app = static_cast<Web *>(user_data);
+    if (app != nullptr && event != nullptr) {
+        app->push_mouse_event(InputKind::kMouseUp, *event);
+    }
+    return true;
+}
+
 void Web::on_device_lost(const wgpu::Device &, wgpu::DeviceLostReason, wgpu::StringView, Web *app) {
     if (app != nullptr) {
         app->device_lost_ = true;
@@ -186,6 +245,37 @@ void Web::on_error(const wgpu::Device &, wgpu::ErrorType, wgpu::StringView, Web 
     if (app != nullptr) {
         ++app->uncaptured_error_count_;
     }
+}
+
+void Web::install_input() {
+    emscripten_set_mousemove_callback(kCanvasSelector, this, false, &Web::on_mouse_move);
+    emscripten_set_mousedown_callback(kCanvasSelector, this, true, &Web::on_mouse_down);
+    emscripten_set_mouseup_callback(kCanvasSelector, this, true, &Web::on_mouse_up);
+}
+
+void Web::push_mouse_event(InputKind kind, const EmscriptenMouseEvent &event) {
+    double css_width = 0.0;
+    double css_height = 0.0;
+    emscripten_get_element_css_size(kCanvasSelector, &css_width, &css_height);
+    if (css_width <= 0.0 || css_height <= 0.0 || screen_.scale <= 0) {
+        return;
+    }
+
+    const f32 physical_x =
+        static_cast<f32>(event.targetX * static_cast<double>(width_) / css_width);
+    const f32 physical_y =
+        static_cast<f32>(event.targetY * static_cast<double>(height_) / css_height);
+    const i32 x = std::clamp(static_cast<i32>(std::floor(physical_x / screen_.scale)), 0,
+                             std::max(0, screen_.width - 1));
+    const i32 y = std::clamp(static_cast<i32>(std::floor(physical_y / screen_.scale)), 0,
+                             std::max(0, screen_.height - 1));
+    InputEvent input = {};
+    input.kind = kind;
+    input.button = static_cast<u8>(event.button);
+    input.x = x;
+    input.y = y;
+    (void)input_events_.push(input);
+    draw_dirty_ = true;
 }
 
 auto Web::choose_surface() -> b8 {
@@ -212,6 +302,7 @@ auto Web::resize() -> b8 {
 
     width_ = size.width;
     height_ = size.height;
+    draw_dirty_ = true;
     const Screen next_screen = screen_for(static_cast<i32>(width_), static_cast<i32>(height_));
     if (next_screen.scale != screen_.scale || next_screen.width != screen_.width ||
         next_screen.height != screen_.height) {
@@ -254,29 +345,19 @@ auto Web::make_pipeline() -> b8 {
         return false;
     }
 
-    draw_buffer_ = make_buffer(device_, kDrawBufferBytes);
-    clip_buffer_ = make_buffer(device_, kClipBufferBytes);
-    text_buffer_ = make_buffer(device_, kTextBufferBytes);
-    sample_buffer_ = make_buffer(device_, kSampleBufferBytes);
-    if (draw_buffer_ == nullptr || clip_buffer_ == nullptr || text_buffer_ == nullptr ||
-        sample_buffer_ == nullptr) {
+    rect_buffer_ = make_vertex_buffer(device_, kRectBufferBytes);
+    glyph_buffer_ = make_vertex_buffer(device_, kGlyphBufferBytes);
+    icon_buffer_ = make_vertex_buffer(device_, kIconBufferBytes);
+    if (rect_buffer_ == nullptr || glyph_buffer_ == nullptr || icon_buffer_ == nullptr) {
         return false;
     }
 
-    std::array<wgpu::BindGroupLayoutEntry, 5> bind_group_layout_entries = {};
+    std::array<wgpu::BindGroupLayoutEntry, 1> bind_group_layout_entries = {};
     bind_group_layout_entries[0].binding = 0;
-    bind_group_layout_entries[0].visibility = wgpu::ShaderStage::Fragment;
+    bind_group_layout_entries[0].visibility =
+        wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
     bind_group_layout_entries[0].buffer.type = wgpu::BufferBindingType::Uniform;
     bind_group_layout_entries[0].buffer.minBindingSize = sizeof(Frame);
-    for (u32 binding = 1; binding < bind_group_layout_entries.size(); ++binding) {
-        bind_group_layout_entries[binding].binding = binding;
-        bind_group_layout_entries[binding].visibility = wgpu::ShaderStage::Fragment;
-        bind_group_layout_entries[binding].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
-    }
-    bind_group_layout_entries[1].buffer.minBindingSize = kDrawBufferBytes;
-    bind_group_layout_entries[2].buffer.minBindingSize = kClipBufferBytes;
-    bind_group_layout_entries[3].buffer.minBindingSize = kTextBufferBytes;
-    bind_group_layout_entries[4].buffer.minBindingSize = kSampleBufferBytes;
 
     wgpu::BindGroupLayoutDescriptor bind_group_layout_descriptor = {};
     bind_group_layout_descriptor.entryCount = bind_group_layout_entries.size();
@@ -295,23 +376,11 @@ auto Web::make_pipeline() -> b8 {
         return false;
     }
 
-    std::array<wgpu::BindGroupEntry, 5> bind_group_entries = {};
+    std::array<wgpu::BindGroupEntry, 1> bind_group_entries = {};
     bind_group_entries[0].binding = 0;
     bind_group_entries[0].buffer = uniform_buffer_;
     bind_group_entries[0].offset = 0;
     bind_group_entries[0].size = sizeof(Frame);
-    bind_group_entries[1].binding = 1;
-    bind_group_entries[1].buffer = draw_buffer_;
-    bind_group_entries[1].size = kDrawBufferBytes;
-    bind_group_entries[2].binding = 2;
-    bind_group_entries[2].buffer = clip_buffer_;
-    bind_group_entries[2].size = kClipBufferBytes;
-    bind_group_entries[3].binding = 3;
-    bind_group_entries[3].buffer = text_buffer_;
-    bind_group_entries[3].size = kTextBufferBytes;
-    bind_group_entries[4].binding = 4;
-    bind_group_entries[4].buffer = sample_buffer_;
-    bind_group_entries[4].size = kSampleBufferBytes;
 
     wgpu::BindGroupDescriptor bind_group_descriptor = {};
     bind_group_descriptor.layout = bind_group_layout_;
@@ -322,25 +391,47 @@ auto Web::make_pipeline() -> b8 {
         return false;
     }
 
-    wgpu::ColorTargetState color_target = {};
-    color_target.format = surface_format_;
+    std::array<wgpu::VertexAttribute, 2> attributes = {};
+    attributes[0].format = wgpu::VertexFormat::Float32x4;
+    attributes[0].offset = 0;
+    attributes[0].shaderLocation = 0;
+    attributes[1].format = wgpu::VertexFormat::Float32x4;
+    attributes[1].offset = sizeof(f32) * 4U;
+    attributes[1].shaderLocation = 1;
 
-    wgpu::FragmentState fragment = {};
-    fragment.module = shader;
-    fragment.entryPoint = "fs_main";
-    fragment.targetCount = 1;
-    fragment.targets = &color_target;
+    wgpu::VertexBufferLayout instance_buffer = {};
+    instance_buffer.arrayStride = sizeof(RectDraw);
+    instance_buffer.stepMode = wgpu::VertexStepMode::Instance;
+    instance_buffer.attributeCount = attributes.size();
+    instance_buffer.attributes = attributes.data();
 
-    wgpu::RenderPipelineDescriptor pipeline_descriptor = {};
-    pipeline_descriptor.layout = pipeline_layout;
-    pipeline_descriptor.vertex.module = shader;
-    pipeline_descriptor.vertex.entryPoint = "vs_main";
-    pipeline_descriptor.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
-    pipeline_descriptor.multisample.count = 1;
-    pipeline_descriptor.fragment = &fragment;
+    auto make_render_pipeline = [&](const char *vertex_entry,
+                                    const char *fragment_entry) -> wgpu::RenderPipeline {
+        wgpu::ColorTargetState color_target = {};
+        color_target.format = surface_format_;
 
-    pipeline_ = device_.CreateRenderPipeline(&pipeline_descriptor);
-    return pipeline_ != nullptr;
+        wgpu::FragmentState fragment = {};
+        fragment.module = shader;
+        fragment.entryPoint = fragment_entry;
+        fragment.targetCount = 1;
+        fragment.targets = &color_target;
+
+        wgpu::RenderPipelineDescriptor pipeline_descriptor = {};
+        pipeline_descriptor.layout = pipeline_layout;
+        pipeline_descriptor.vertex.module = shader;
+        pipeline_descriptor.vertex.entryPoint = vertex_entry;
+        pipeline_descriptor.vertex.bufferCount = 1;
+        pipeline_descriptor.vertex.buffers = &instance_buffer;
+        pipeline_descriptor.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
+        pipeline_descriptor.multisample.count = 1;
+        pipeline_descriptor.fragment = &fragment;
+        return device_.CreateRenderPipeline(&pipeline_descriptor);
+    };
+
+    rect_pipeline_ = make_render_pipeline("vs_rect", "fs_rect");
+    glyph_pipeline_ = make_render_pipeline("vs_glyph", "fs_glyph");
+    icon_pipeline_ = make_render_pipeline("vs_icon", "fs_icon");
+    return rect_pipeline_ != nullptr && glyph_pipeline_ != nullptr && icon_pipeline_ != nullptr;
 }
 
 auto Web::upload_draws() -> b8 {
@@ -348,38 +439,28 @@ auto Web::upload_draws() -> b8 {
         return true;
     }
 
-    build_demo(&draws_, screen_);
-    const usize text_word_count = (draws_.text.size() + sizeof(u32) - 1U) / sizeof(u32);
-    for (usize index = 0; index < text_word_count; ++index) {
-        text_words_[index] = 0;
-    }
-    for (usize index = 0; index < draws_.text.size(); ++index) {
-        const u32 byte = static_cast<u8>(draws_.text[index]);
-        text_words_[index >> 2U] |= byte << ((index & 3U) * 8U);
-    }
+    build_gui_frame(&gui_, screen_, input_events_.span(), &draws_);
+    input_events_.clear();
 
     const Frame uniforms = {
         .width = static_cast<f32>(width_),
         .height = static_cast<f32>(height_),
         .screen_width = static_cast<f32>(screen_.width),
         .screen_height = static_cast<f32>(screen_.height),
-        .draw_count = static_cast<u32>(draws_.draws.size()),
-        .clip_count = static_cast<u32>(draws_.clips.size()),
-        .sample_count = static_cast<u32>(draws_.samples.size()),
-        ._pad = 0,
+        .rect_count = static_cast<u32>(draws_.rects.size()),
+        .glyph_count = static_cast<u32>(draws_.glyphs.size()),
+        .icon_count = static_cast<u32>(draws_.icons.size()),
+        ._pad1 = 0,
     };
     queue_.WriteBuffer(uniform_buffer_, 0, &uniforms, sizeof(uniforms));
-    if (!draws_.draws.empty()) {
-        queue_.WriteBuffer(draw_buffer_, 0, draws_.draws.data(), draws_.draws.byte_size());
+    if (!draws_.rects.empty()) {
+        queue_.WriteBuffer(rect_buffer_, 0, draws_.rects.data(), draws_.rects.byte_size());
     }
-    if (!draws_.clips.empty()) {
-        queue_.WriteBuffer(clip_buffer_, 0, draws_.clips.data(), draws_.clips.byte_size());
+    if (!draws_.glyphs.empty()) {
+        queue_.WriteBuffer(glyph_buffer_, 0, draws_.glyphs.data(), draws_.glyphs.byte_size());
     }
-    if (text_word_count != 0) {
-        queue_.WriteBuffer(text_buffer_, 0, text_words_.data(), text_word_count * sizeof(u32));
-    }
-    if (!draws_.samples.empty()) {
-        queue_.WriteBuffer(sample_buffer_, 0, draws_.samples.data(), draws_.samples.byte_size());
+    if (!draws_.icons.empty()) {
+        queue_.WriteBuffer(icon_buffer_, 0, draws_.icons.data(), draws_.icons.byte_size());
     }
     draw_dirty_ = false;
     return true;
@@ -390,17 +471,25 @@ auto Web::can_render(wgpu::SurfaceTexture surface_texture) -> b8 {
     switch (surface_texture.status) {
     case wgpu::SurfaceGetCurrentTextureStatus::SuccessOptimal:
     case wgpu::SurfaceGetCurrentTextureStatus::SuccessSuboptimal:
-        return surface_texture.texture != nullptr;
+        if (surface_texture.texture != nullptr) {
+            return true;
+        }
+        draw_dirty_ = true;
+        ++surface_error_count_;
+        return false;
     case wgpu::SurfaceGetCurrentTextureStatus::Outdated:
     case wgpu::SurfaceGetCurrentTextureStatus::Lost:
         needs_configure_ = true;
+        draw_dirty_ = true;
         ++surface_skip_count_;
         return false;
     case wgpu::SurfaceGetCurrentTextureStatus::Timeout:
+        draw_dirty_ = true;
         ++surface_skip_count_;
         return false;
     case wgpu::SurfaceGetCurrentTextureStatus::Error:
     default:
+        draw_dirty_ = true;
         ++surface_error_count_;
         return false;
     }

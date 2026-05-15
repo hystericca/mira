@@ -1,4 +1,4 @@
-#include "mira/draw/draw.hpp"
+#include "mira/gui/gui.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -82,15 +82,16 @@ auto main() -> int {
     constexpr mira::i32 kFrames = 200000;
 
     mira::DrawList list;
+    mira::GuiState gui;
     const mira::Screen screen = mira::screen_for(kWidth, kHeight);
-    mira::build_demo(&list, screen);
+    mira::build_gui_frame(&gui, screen, {}, &list);
 
     g_allocation_calls.store(0, std::memory_order_relaxed);
     g_allocation_bytes.store(0, std::memory_order_relaxed);
     g_count_allocations.store(true, std::memory_order_relaxed);
     const auto start = std::chrono::steady_clock::now();
     for (mira::i32 frame = 0; frame < kFrames; ++frame) {
-        mira::build_demo(&list, screen);
+        mira::build_gui_frame(&gui, screen, {}, &list);
     }
     const auto end = std::chrono::steady_clock::now();
     g_count_allocations.store(false, std::memory_order_relaxed);
@@ -109,15 +110,15 @@ auto main() -> int {
         return 1;
     }
 
-    PrintMetric("mira_draw_bench_version", 3);
+    PrintMetric("mira_draw_bench_version", 5);
     PrintMetric("frames", kFrames);
     PrintMetric("cpu_frame_us", frame_us);
     PrintMetric("upload_bytes_per_frame", list.upload_bytes());
     PrintMetric("upload_bytes_per_pixel", upload_bpp);
     PrintMetric("draws_storage_bytes", sizeof(list));
-    PrintMetric("draw_count", list.draws.size());
-    PrintMetric("clip_count", list.clips.size());
-    PrintMetric("text_bytes", list.text.size());
+    PrintMetric("rect_count", list.rects.size());
+    PrintMetric("glyph_count", list.glyphs.size());
+    PrintMetric("icon_count", list.icons.size());
     PrintMetric("allocation_calls", g_allocation_calls.load(std::memory_order_relaxed));
     PrintMetric("allocation_bytes", g_allocation_bytes.load(std::memory_order_relaxed));
     PrintMetric("overflow_count", list.overflow_count());

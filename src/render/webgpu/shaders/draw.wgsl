@@ -1,253 +1,222 @@
 struct Frame {
     drawable_size: vec2<f32>,
     screen_size: vec2<f32>,
-    draw_count: u32,
-    clip_count: u32,
-    sample_count: u32,
-    _pad: u32,
+    rect_count: u32,
+    glyph_count: u32,
+    icon_count: u32,
+    _pad1: u32,
 }
 
-struct Clip {
-    x0: f32,
-    y0: f32,
-    x1: f32,
-    y1: f32,
+struct RectVertex {
+    @builtin(position) position: vec4<f32>,
+    @location(0) tone: f32,
 }
 
-struct Draw {
-    x0: f32,
-    y0: f32,
-    x1: f32,
-    y1: f32,
-    p0: f32,
-    p1: f32,
-    data0: u32,
-    data1: u32,
+struct GlyphVertex {
+    @builtin(position) position: vec4<f32>,
+    @location(0) local: vec2<f32>,
+    @location(1) code: f32,
+    @location(2) tone: f32,
+    @location(3) scale: f32,
 }
 
-struct Sample {
-    y: f32,
-    flags: u32,
+struct IconVertex {
+    @builtin(position) position: vec4<f32>,
+    @location(0) local: vec2<f32>,
+    @location(1) code: f32,
+    @location(2) tone: f32,
+    @location(3) scale: f32,
 }
 
 @group(0) @binding(0)
 var<uniform> frame: Frame;
 
-@group(0) @binding(1)
-var<storage, read> draws: array<Draw>;
-
-@group(0) @binding(2)
-var<storage, read> clips: array<Clip>;
-
-@group(0) @binding(3)
-var<storage, read> text_words: array<u32>;
-
-@group(0) @binding(4)
-var<storage, read> samples: array<Sample>;
-
-const KIND_FILL: u32 = 0u;
-const KIND_STROKE: u32 = 1u;
-const KIND_DASH: u32 = 2u;
-const KIND_TEXT: u32 = 3u;
-const KIND_GRAPH: u32 = 4u;
-
-// Repeating 4x4 Bayer threshold matrix for ordered grayscale dithering.
-fn bayer4(cell: vec2<u32>) -> f32 {
-    let table = array<f32, 16>(
-        0.0, 8.0, 2.0, 10.0,
-        12.0, 4.0, 14.0, 6.0,
-        3.0, 11.0, 1.0, 9.0,
-        15.0, 7.0, 13.0, 5.0
-    );
-    // & 3u is modulo 4 for unsigned integers, mapping any cell into the tile.
-    let index = ((cell.y & 3u) * 4u) + (cell.x & 3u);
-    return (table[index] + 0.5) / 16.0;
-}
-
-fn draw_kind(d: Draw) -> u32 {
-    return (d.data1 >> 16u) & 255u;
-}
-
-fn draw_clip_index(d: Draw) -> u32 {
-    return (d.data1 >> 8u) & 255u;
-}
-
-fn draw_luma(d: Draw) -> f32 {
-    return f32((d.data1 >> 24u) & 255u) / 255.0;
-}
-
-fn text_offset(d: Draw) -> u32 {
-    return d.data0 & 65535u;
-}
-
-fn text_length(d: Draw) -> u32 {
-    return (d.data0 >> 16u) & 65535u;
-}
-
-fn text_byte(offset: u32) -> u32 {
-    let word = text_words[offset >> 2u];
-    return (word >> ((offset & 3u) * 8u)) & 255u;
-}
-
-fn in_clip(p: vec2<f32>, clip_index: u32) -> bool {
-    if clip_index >= frame.clip_count {
-        return false;
+fn tone_for(value: f32) -> vec4<f32> {
+    if value < 0.5 {
+        return vec4<f32>(0.0, 0.0, 0.0, 1.0);
     }
-    let clip = clips[clip_index];
-    return p.x >= clip.x0 && p.x < clip.x1 && p.y >= clip.y0 && p.y < clip.y1;
+    return vec4<f32>(1.0, 1.0, 1.0, 1.0);
 }
 
-// Signed-distance helpers keep draw evaluation compact in the fragment pass.
-fn sd_box(p: vec2<f32>, center: vec2<f32>, half_size: vec2<f32>) -> f32 {
-    let d = abs(p - center) - half_size;
-    return length(max(d, vec2<f32>(0.0))) + min(max(d.x, d.y), 0.0);
+fn screen_scale() -> vec2<f32> {
+    return max(frame.drawable_size / max(frame.screen_size, vec2<f32>(1.0)), vec2<f32>(1.0));
 }
 
-fn fill(distance: f32) -> f32 {
-    return 1.0 - smoothstep(-0.5, 0.5, distance);
+fn logical_to_clip(p: vec2<f32>) -> vec4<f32> {
+    let physical = p * screen_scale();
+    let ndc = vec2<f32>(
+        (physical.x / max(frame.drawable_size.x, 1.0)) * 2.0 - 1.0,
+        1.0 - (physical.y / max(frame.drawable_size.y, 1.0)) * 2.0
+    );
+    return vec4<f32>(ndc, 0.0, 1.0);
 }
 
-fn stroke(distance: f32, width: f32) -> f32 {
-    return 1.0 - smoothstep(width, width + 1.0, abs(distance));
-}
-
-fn sd_segment(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
-    let pa = p - a;
-    let ba = b - a;
-    let h = clamp(dot(pa, ba) / max(dot(ba, ba), 0.0001), 0.0, 1.0);
-    return length(pa - (ba * h));
-}
-
-fn dashed_segment(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>, width: f32, dash: f32) -> f32 {
-    let ba = b - a;
-    let length_ba = max(length(ba), 0.0001);
-    let axis = ba / length_ba;
-    let along = dot(p - a, axis);
-    let pattern = select(0.0, 1.0, fract(along / max(dash, 1.0)) < 0.55);
-    let inside = step(0.0, along) * step(along, length_ba);
-    return (1.0 - smoothstep(width, width + 1.0, sd_segment(p, a, b))) * pattern * inside;
+fn corner(vertex_index: u32) -> vec2<f32> {
+    let corners = array<vec2<f32>, 6>(
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(1.0, 0.0),
+        vec2<f32>(0.0, 1.0),
+        vec2<f32>(0.0, 1.0),
+        vec2<f32>(1.0, 0.0),
+        vec2<f32>(1.0, 1.0)
+    );
+    return corners[vertex_index];
 }
 
 fn font_row_bits(code: u32, row: u32) -> u32 {
     let blank = array<u32, 7>(0u, 0u, 0u, 0u, 0u, 0u, 0u);
     let a = array<u32, 7>(14u, 17u, 17u, 31u, 17u, 17u, 17u);
+    let b = array<u32, 7>(30u, 17u, 17u, 30u, 17u, 17u, 30u);
+    let c = array<u32, 7>(14u, 17u, 16u, 16u, 16u, 17u, 14u);
     let d = array<u32, 7>(30u, 17u, 17u, 17u, 17u, 17u, 30u);
+    let e = array<u32, 7>(31u, 16u, 16u, 30u, 16u, 16u, 31u);
+    let f = array<u32, 7>(31u, 16u, 16u, 30u, 16u, 16u, 16u);
+    let g = array<u32, 7>(14u, 17u, 16u, 23u, 17u, 17u, 15u);
+    let h = array<u32, 7>(17u, 17u, 17u, 31u, 17u, 17u, 17u);
     let i = array<u32, 7>(14u, 4u, 4u, 4u, 4u, 4u, 14u);
+    let k = array<u32, 7>(17u, 18u, 20u, 24u, 20u, 18u, 17u);
     let l = array<u32, 7>(16u, 16u, 16u, 16u, 16u, 16u, 31u);
     let m = array<u32, 7>(17u, 27u, 21u, 21u, 17u, 17u, 17u);
+    let n = array<u32, 7>(17u, 25u, 21u, 19u, 17u, 17u, 17u);
+    let o = array<u32, 7>(14u, 17u, 17u, 17u, 17u, 17u, 14u);
+    let p = array<u32, 7>(30u, 17u, 17u, 30u, 16u, 16u, 16u);
     let r = array<u32, 7>(30u, 17u, 17u, 30u, 20u, 18u, 17u);
+    let s = array<u32, 7>(15u, 16u, 16u, 14u, 1u, 1u, 30u);
+    let t = array<u32, 7>(31u, 4u, 4u, 4u, 4u, 4u, 4u);
+    let u = array<u32, 7>(17u, 17u, 17u, 17u, 17u, 17u, 14u);
+    let v = array<u32, 7>(17u, 17u, 17u, 17u, 17u, 10u, 4u);
+    let w = array<u32, 7>(17u, 17u, 17u, 21u, 21u, 21u, 10u);
+    let y = array<u32, 7>(17u, 17u, 10u, 4u, 4u, 4u, 4u);
+    let z = array<u32, 7>(31u, 1u, 2u, 4u, 8u, 16u, 31u);
 
     switch code {
         case 65u: { return a[row]; }
+        case 66u: { return b[row]; }
+        case 67u: { return c[row]; }
         case 68u: { return d[row]; }
+        case 69u: { return e[row]; }
+        case 70u: { return f[row]; }
+        case 71u: { return g[row]; }
+        case 72u: { return h[row]; }
         case 73u: { return i[row]; }
+        case 75u: { return k[row]; }
         case 76u: { return l[row]; }
         case 77u: { return m[row]; }
+        case 78u: { return n[row]; }
+        case 79u: { return o[row]; }
+        case 80u: { return p[row]; }
         case 82u: { return r[row]; }
+        case 83u: { return s[row]; }
+        case 84u: { return t[row]; }
+        case 85u: { return u[row]; }
+        case 86u: { return v[row]; }
+        case 87u: { return w[row]; }
+        case 89u: { return y[row]; }
+        case 90u: { return z[row]; }
         default: { return blank[row]; }
     }
 }
 
-fn text_mask(d: Draw, p: vec2<f32>) -> f32 {
-    let scale = max(d.p0, 1.0);
-    let local = p - vec2<f32>(d.x0, d.y0);
-    if local.x < 0.0 || local.y < 0.0 || local.y >= 7.0 * scale {
-        return 0.0;
-    }
+fn icon_row_bits(code: u32, row: u32) -> u32 {
+    let pen = array<u32, 8>(0xc0u, 0xe0u, 0x50u, 0x28u, 0x14u, 0x0au, 0x04u, 0x00u);
+    let brush = array<u32, 8>(0xe0u, 0xd0u, 0xa8u, 0x44u, 0x22u, 0x12u, 0x0cu, 0x00u);
+    let line = array<u32, 8>(0xc0u, 0xb8u, 0x48u, 0x48u, 0x78u, 0x04u, 0x02u, 0x00u);
+    let magic = array<u32, 8>(0xa8u, 0x50u, 0x88u, 0x50u, 0xa8u, 0x04u, 0x02u, 0x00u);
+    let rect = array<u32, 8>(0xfcu, 0x84u, 0x84u, 0x80u, 0x84u, 0xeau, 0x04u, 0x00u);
+    let zoom = array<u32, 8>(0x30u, 0x48u, 0x84u, 0x84u, 0x48u, 0x34u, 0x02u, 0x00u);
+    let erase = array<u32, 8>(0x00u, 0x3cu, 0x46u, 0x4au, 0x52u, 0x62u, 0x3cu, 0x00u);
 
-    let advance = 6.0 * scale;
-    let glyph_index = u32(floor(local.x / advance));
-    if glyph_index >= text_length(d) {
-        return 0.0;
+    switch code {
+        case 0u: { return pen[row]; }
+        case 1u: { return brush[row]; }
+        case 2u: { return line[row]; }
+        case 3u: { return magic[row]; }
+        case 4u: { return rect[row]; }
+        case 5u: { return zoom[row]; }
+        case 6u: { return erase[row]; }
+        default: { return 0u; }
     }
-
-    let glyph_x = u32(floor((local.x - (f32(glyph_index) * advance)) / scale));
-    let glyph_y = u32(floor(local.y / scale));
-    if glyph_x >= 5u || glyph_y >= 7u {
-        return 0.0;
-    }
-
-    let bits = font_row_bits(text_byte(text_offset(d) + glyph_index), glyph_y);
-    return f32((bits >> (4u - glyph_x)) & 1u);
-}
-
-fn graph_curve_mask(d: Draw, p: vec2<f32>) -> f32 {
-    if p.x < d.x0 || p.x >= d.x1 || p.y < d.y0 || p.y >= d.y1 {
-        return 0.0;
-    }
-
-    let offset = d.data0 & 65535u;
-    if offset >= frame.sample_count {
-        return 0.0;
-    }
-    let count = min((d.data0 >> 16u) & 65535u, frame.sample_count - offset);
-    if count < 2u {
-        return 0.0;
-    }
-
-    let t = clamp((p.x - d.x0) / max(d.x1 - d.x0, 1.0), 0.0, 1.0);
-    let sample_x = t * f32(count - 1u);
-    let sample0 = min(u32(floor(sample_x)), count - 2u);
-    let sample1 = sample0 + 1u;
-    let y0 = samples[offset + sample0].y;
-    let y1 = samples[offset + sample1].y;
-    let y = mix(y0, y1, fract(sample_x));
-    return 1.0 - smoothstep(max(d.p0, 1.0), max(d.p0, 1.0) + 1.0, abs(p.y - y));
 }
 
 @vertex
-fn vs_main(@builtin(vertex_index) vertex_index: u32) -> @builtin(position) vec4<f32> {
-    let positions = array<vec2<f32>, 6>(
-        vec2<f32>(-1.0, -1.0),
-        vec2<f32>(1.0, -1.0),
-        vec2<f32>(-1.0, 1.0),
-        vec2<f32>(-1.0, 1.0),
-        vec2<f32>(1.0, -1.0),
-        vec2<f32>(1.0, 1.0)
-    );
-    return vec4<f32>(positions[vertex_index], 0.0, 1.0);
+fn vs_rect(@builtin(vertex_index) vertex_index: u32,
+    @location(0) bounds: vec4<f32>,
+    @location(1) attrs: vec4<f32>) -> RectVertex {
+    let c = corner(vertex_index);
+    let p = mix(bounds.xy, bounds.zw, c);
+    var out: RectVertex;
+    out.position = logical_to_clip(p);
+    out.tone = attrs.x;
+    return out;
 }
 
 @fragment
-fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
-    let screen_scale = max(frame.drawable_size / max(frame.screen_size, vec2<f32>(1.0)), vec2<f32>(1.0));
-    let cell_size = min(screen_scale.x, screen_scale.y);
-    let cell = vec2<u32>(floor(position.xy / cell_size));
-    let local = fract(position.xy / cell_size);
-    let p = (vec2<f32>(cell) + vec2<f32>(0.5));
+fn fs_rect(in: RectVertex) -> @location(0) vec4<f32> {
+    return tone_for(in.tone);
+}
 
-    var luma = 0.0;
-    for (var index: u32 = 0u; index < frame.draw_count; index = index + 1u) {
-        let d = draws[index];
-        if !in_clip(p, draw_clip_index(d)) {
-            continue;
-        }
+@vertex
+fn vs_glyph(@builtin(vertex_index) vertex_index: u32,
+    @location(0) origin: vec4<f32>,
+    @location(1) attrs: vec4<f32>) -> GlyphVertex {
+    let scale = max(origin.z, 1.0);
+    let size = vec2<f32>(5.0 * scale, 7.0 * scale);
+    let local = corner(vertex_index) * size;
+    let p = origin.xy + local;
+    var out: GlyphVertex;
+    out.position = logical_to_clip(p);
+    out.local = local;
+    out.code = attrs.x;
+    out.tone = attrs.y;
+    out.scale = scale;
+    return out;
+}
 
-        let kind = draw_kind(d);
-        let ink = draw_luma(d);
-        if kind == KIND_FILL {
-            let inside = select(0.0, 1.0,
-                p.x >= d.x0 && p.x < d.x1 && p.y >= d.y0 && p.y < d.y1);
-            luma = mix(luma, ink, inside);
-        } else if kind == KIND_STROKE {
-            let center = (vec2<f32>(d.x0, d.y0) + vec2<f32>(d.x1, d.y1)) * 0.5;
-            let half_size = abs(vec2<f32>(d.x1 - d.x0, d.y1 - d.y0)) * 0.5;
-            luma = max(luma, stroke(sd_box(p, center, half_size), max(d.p0, 1.0)) * ink);
-        } else if kind == KIND_DASH {
-            luma = max(luma, dashed_segment(p, vec2<f32>(d.x0, d.y0),
-                vec2<f32>(d.x1, d.y1), max(d.p0, 1.0), max(d.p1, 1.0)) * ink);
-        } else if kind == KIND_TEXT {
-            luma = max(luma, text_mask(d, p) * ink);
-        } else if kind == KIND_GRAPH {
-            luma = max(luma, graph_curve_mask(d, p) * ink);
-        }
+@fragment
+fn fs_glyph(in: GlyphVertex) -> @location(0) vec4<f32> {
+    let scale = max(in.scale, 1.0);
+    let gx = u32(floor(in.local.x / scale));
+    let gy = u32(floor(in.local.y / scale));
+    if gx >= 5u || gy >= 7u {
+        discard;
     }
 
-    let threshold = bayer4(cell);
-    // Draw rows store gray luma; Bayer dither turns it into screen cells.
-    var out_luma = select(0.06, 0.88, clamp(luma, 0.0, 1.0) > threshold);
-    let border = step(0.80, max(abs(local.x - 0.5), abs(local.y - 0.5)) * 2.0);
-    out_luma = mix(out_luma, out_luma * 0.62, border * 0.60);
+    let bits = font_row_bits(u32(in.code + 0.5), gy);
+    if ((bits >> (4u - gx)) & 1u) == 0u {
+        discard;
+    }
+    return tone_for(in.tone);
+}
 
-    return vec4<f32>(vec3<f32>(out_luma), 1.0);
+@vertex
+fn vs_icon(@builtin(vertex_index) vertex_index: u32,
+    @location(0) origin: vec4<f32>,
+    @location(1) attrs: vec4<f32>) -> IconVertex {
+    let scale = max(origin.z, 1.0);
+    let size = vec2<f32>(8.0 * scale, 8.0 * scale);
+    let local = corner(vertex_index) * size;
+    let p = origin.xy + local;
+    var out: IconVertex;
+    out.position = logical_to_clip(p);
+    out.local = local;
+    out.code = attrs.x;
+    out.tone = attrs.y;
+    out.scale = scale;
+    return out;
+}
+
+@fragment
+fn fs_icon(in: IconVertex) -> @location(0) vec4<f32> {
+    let scale = max(in.scale, 1.0);
+    let ix = u32(floor(in.local.x / scale));
+    let iy = u32(floor(in.local.y / scale));
+    if ix >= 8u || iy >= 8u {
+        discard;
+    }
+
+    let bits = icon_row_bits(u32(in.code + 0.5), iy);
+    if ((bits >> (7u - ix)) & 1u) == 0u {
+        discard;
+    }
+    return tone_for(in.tone);
 }

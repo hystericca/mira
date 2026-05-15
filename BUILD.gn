@@ -23,8 +23,10 @@ source_set("mira_core") {
   sources = [
     "include/mira/base/table.hpp",
     "include/mira/draw/draw.hpp",
+    "include/mira/gui/gui.hpp",
     "include/mira/types.hpp",
     "src/draw/draw.cc",
+    "src/gui/gui.cc",
   ]
 
   public_configs = [ ":mira_public_config" ]
