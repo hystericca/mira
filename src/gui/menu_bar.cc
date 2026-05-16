@@ -1,5 +1,21 @@
 #include "private.hpp"
 
+namespace mira {
+namespace impl = gui;
+
+MenuAction menuaction(const GuiState &state, HitRecord hit) {
+    if (hit.kind != HitKind::kMenuAction) {
+        return MenuAction::kNone;
+    }
+    const std::span<const impl::MenuCommand> commands = impl::menucommands(state.active_menu);
+    if (hit.index >= commands.size()) {
+        return MenuAction::kNone;
+    }
+    return commands[hit.index].action;
+}
+
+} // namespace mira
+
 namespace mira::gui {
 
 void menulayout(GuiState *state) {
@@ -9,10 +25,9 @@ void menulayout(GuiState *state) {
         addhit(state, rect, HitKind::kMenu, item.index, 100);
         menu_x += rect.width + 1.0F;
     }
-    if (state->active_menu == 3) {
-        for (u8 index = 0; index < static_cast<u8>(kLayerMenuCommandCount); ++index) {
-            addhit(state, menucmdrect(index), HitKind::kMenuAction, index, 120);
-        }
+    const std::span<const MenuCommand> commands = menucommands(state->active_menu);
+    for (u8 index = 0; index < static_cast<u8>(commands.size()); ++index) {
+        addhit(state, menucmdrect(state->active_menu, index), HitKind::kMenuAction, index, 120);
     }
 }
 
@@ -23,12 +38,19 @@ b8 menumouse(GuiState *state, HitRecord hit) {
         return true;
     }
 
-    if (hit.kind != HitKind::kMenuAction ||
-        hit.index >= static_cast<u8>(kLayerMenuCommandCount)) {
+    const MenuAction action = mira::menuaction(*state, hit);
+    if (action == MenuAction::kNone) {
         return false;
     }
 
-    switch (kLayerMenuCommands[hit.index].action) {
+    switch (action) {
+    case MenuAction::kNone:
+        break;
+    case MenuAction::kFileNew:
+        docnew(state);
+        break;
+    case MenuAction::kFileImport:
+        break;
     case MenuAction::kLayerNew:
         if (layeradd(state, {})) {
             (void)layeredit(state);
@@ -46,13 +68,13 @@ b8 menumouse(GuiState *state, HitRecord hit) {
 }
 
 void menudraw(const GuiState &state, DrawList *draws) {
-    drawrect(draws, state.layout.menu_bar, Tone::kBlack);
+    drawrect(draws, state.layout.menu_bar, Tone::kWhite);
     drawstroke(draws,
-                {.x = 0.0F,
-                 .y = state.layout.menu_bar.height - 1.0F,
-                 .width = state.layout.window.width,
-                 .height = 1.0F},
-                Tone::kWhite);
+               {.x = 0.0F,
+                .y = state.layout.menu_bar.height - 1.0F,
+                .width = state.layout.window.width,
+                .height = 1.0F},
+               Tone::kBlack);
 
     f32 menu_x = 4.0F;
     for (const MenuItem item : kMenuItems) {
@@ -60,35 +82,39 @@ void menudraw(const GuiState &state, DrawList *draws) {
         const b8 active = state.active_menu == item.index;
         const b8 hot = state.hot_kind == HitKind::kMenu && state.hot_index == item.index;
         if (active || hot) {
-            drawrect(draws,
-                      {.x = rect.x, .y = rect.y + 1.0F, .width = rect.width, .height = 12.0F},
-                      Tone::kWhite);
+            drawrect(draws, {.x = rect.x, .y = rect.y + 2.0F, .width = rect.width, .height = 14.0F},
+                     active ? Tone::kBlack : Tone::kLight);
+            if (hot && !active) {
+                drawstroke(draws,
+                           {.x = rect.x, .y = rect.y + 2.0F, .width = rect.width, .height = 14.0F},
+                           Tone::kBlack);
+            }
         }
-        drawtext(draws, item.text, rect.x + 5.0F, 4.0F,
-                  active || hot ? Tone::kBlack : Tone::kWhite);
+        drawtext(draws, item.text, rect.x + 5.0F, 3.0F, active ? Tone::kWhite : Tone::kBlack);
         menu_x += rect.width + 1.0F;
     }
 
-    if (state.active_menu != 3) {
+    const std::span<const MenuCommand> commands = menucommands(state.active_menu);
+    if (commands.empty()) {
         return;
     }
 
     const Rect menu = {
-        .x = layermenux(),
-        .y = 14.0F,
-        .width = 45.0F,
-        .height = static_cast<f32>(kLayerMenuCommandCount) * 13.0F,
+        .x = menux(state.active_menu),
+        .y = 18.0F,
+        .width = menucmdwidth(state.active_menu),
+        .height = static_cast<f32>(commands.size()) * 15.0F,
     };
-    drawrect(draws, menu, Tone::kBlack);
-    drawstroke(draws, menu, Tone::kWhite);
-    for (u8 index = 0; index < static_cast<u8>(kLayerMenuCommandCount); ++index) {
-        const Rect item = menucmdrect(index);
+    drawrect(draws, menu, Tone::kWhite);
+    drawstroke(draws, menu, Tone::kBlack);
+    for (u8 index = 0; index < static_cast<u8>(commands.size()); ++index) {
+        const Rect item = menucmdrect(state.active_menu, index);
         const b8 hot = state.hot_kind == HitKind::kMenuAction && state.hot_index == index;
         if (hot) {
-            drawrect(draws, item, Tone::kWhite);
+            drawrect(draws, item, Tone::kBlack);
         }
-        drawtext(draws, kLayerMenuCommands[index].text, item.x + 5.0F, item.y + 3.0F,
-                  hot ? Tone::kBlack : Tone::kWhite);
+        drawtext(draws, commands[index].text, item.x + 5.0F, item.y + 1.0F,
+                 hot ? Tone::kWhite : Tone::kBlack);
     }
 }
 

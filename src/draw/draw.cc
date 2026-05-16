@@ -71,7 +71,7 @@ DrawView view(const DrawList &list) {
     };
 }
 
-u32 tone_value(Tone tone) { return tone == Tone::kWhite ? 1U : 0U; }
+u32 tone_value(Tone tone) { return static_cast<u32>(tone); }
 
 b8 add_rect(DrawList *list, Rect rect, Tone tone) {
     return add_rect_value(list, rect, tone_value(tone));
@@ -126,7 +126,7 @@ b8 add_text(DrawList *list, std::string_view text, f32 x, f32 y, Tone tone, f32 
                  }) &&
                  ok;
         }
-        cursor += 6.0F * clamped_scale;
+        cursor += kFontWidth * clamped_scale;
     }
     return ok;
 }

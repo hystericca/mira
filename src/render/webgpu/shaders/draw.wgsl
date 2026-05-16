@@ -61,9 +61,36 @@ var layer_tex: texture_2d_array<f32>;
 @group(1) @binding(2)
 var layer_sampler: sampler;
 
-fn tone_for(value: f32) -> vec4<f32> {
-    if value < 0.5 {
+fn bayer4(p: vec2<f32>) -> f32 {
+    let x = u32(floor(p.x)) & 3u;
+    let y = u32(floor(p.y)) & 3u;
+    let cells = array<f32, 16>(
+        0.0, 8.0, 2.0, 10.0,
+        12.0, 4.0, 14.0, 6.0,
+        3.0, 11.0, 1.0, 9.0,
+        15.0, 7.0, 13.0, 5.0
+    );
+    return (cells[(y * 4u) + x] + 0.5) / 16.0;
+}
+
+fn mono(luma: f32, p: vec2<f32>) -> vec4<f32> {
+    let bit = select(0.0, 1.0, clamp(luma, 0.0, 1.0) >= bayer4(p));
+    return vec4<f32>(bit, bit, bit, 1.0);
+}
+
+fn tone_for(value: f32, p: vec2<f32>) -> vec4<f32> {
+    let tone = u32(value + 0.5);
+    if tone == 0u {
         return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    }
+    if tone == 1u {
+        return vec4<f32>(0.62, 0.62, 0.62, 1.0);
+    }
+    if tone == 2u {
+        return vec4<f32>(0.78, 0.78, 0.78, 1.0);
+    }
+    if tone == 3u {
+        return vec4<f32>(0.94, 0.94, 0.94, 1.0);
     }
     return vec4<f32>(1.0, 1.0, 1.0, 1.0);
 }
@@ -93,80 +120,30 @@ fn corner(vertex_index: u32) -> vec2<f32> {
     return corners[vertex_index];
 }
 
-fn font_row_bits(code: u32, row: u32) -> u32 {
-    let blank = array<u32, 7>(0u, 0u, 0u, 0u, 0u, 0u, 0u);
-    let a = array<u32, 7>(14u, 17u, 17u, 31u, 17u, 17u, 17u);
-    let b = array<u32, 7>(30u, 17u, 17u, 30u, 17u, 17u, 30u);
-    let c = array<u32, 7>(14u, 17u, 16u, 16u, 16u, 17u, 14u);
-    let d = array<u32, 7>(30u, 17u, 17u, 17u, 17u, 17u, 30u);
-    let e = array<u32, 7>(31u, 16u, 16u, 30u, 16u, 16u, 31u);
-    let f = array<u32, 7>(31u, 16u, 16u, 30u, 16u, 16u, 16u);
-    let g = array<u32, 7>(14u, 17u, 16u, 23u, 17u, 17u, 15u);
-    let h = array<u32, 7>(17u, 17u, 17u, 31u, 17u, 17u, 17u);
-    let i = array<u32, 7>(14u, 4u, 4u, 4u, 4u, 4u, 14u);
-    let k = array<u32, 7>(17u, 18u, 20u, 24u, 20u, 18u, 17u);
-    let l = array<u32, 7>(16u, 16u, 16u, 16u, 16u, 16u, 31u);
-    let m = array<u32, 7>(17u, 27u, 21u, 21u, 17u, 17u, 17u);
-    let n = array<u32, 7>(17u, 25u, 21u, 19u, 17u, 17u, 17u);
-    let o = array<u32, 7>(14u, 17u, 17u, 17u, 17u, 17u, 14u);
-    let p = array<u32, 7>(30u, 17u, 17u, 30u, 16u, 16u, 16u);
-    let r = array<u32, 7>(30u, 17u, 17u, 30u, 20u, 18u, 17u);
-    let s = array<u32, 7>(15u, 16u, 16u, 14u, 1u, 1u, 30u);
-    let t = array<u32, 7>(31u, 4u, 4u, 4u, 4u, 4u, 4u);
-    let u = array<u32, 7>(17u, 17u, 17u, 17u, 17u, 17u, 14u);
-    let v = array<u32, 7>(17u, 17u, 17u, 17u, 17u, 10u, 4u);
-    let w = array<u32, 7>(17u, 17u, 17u, 21u, 21u, 21u, 10u);
-    let y = array<u32, 7>(17u, 17u, 10u, 4u, 4u, 4u, 4u);
-    let z = array<u32, 7>(31u, 1u, 2u, 4u, 8u, 16u, 31u);
-    let zero = array<u32, 7>(14u, 17u, 19u, 21u, 25u, 17u, 14u);
-    let one = array<u32, 7>(4u, 12u, 4u, 4u, 4u, 4u, 14u);
-    let two = array<u32, 7>(14u, 17u, 1u, 2u, 4u, 8u, 31u);
-    let three = array<u32, 7>(30u, 1u, 1u, 14u, 1u, 1u, 30u);
-    let four = array<u32, 7>(2u, 6u, 10u, 18u, 31u, 2u, 2u);
-    let five = array<u32, 7>(31u, 16u, 16u, 30u, 1u, 1u, 30u);
-    let six = array<u32, 7>(14u, 16u, 16u, 30u, 17u, 17u, 14u);
-    let seven = array<u32, 7>(31u, 1u, 2u, 4u, 8u, 8u, 8u);
-    let eight = array<u32, 7>(14u, 17u, 17u, 14u, 17u, 17u, 14u);
-    let nine = array<u32, 7>(14u, 17u, 17u, 15u, 1u, 1u, 14u);
-
-    switch code {
-        case 48u: { return zero[row]; }
-        case 49u: { return one[row]; }
-        case 50u: { return two[row]; }
-        case 51u: { return three[row]; }
-        case 52u: { return four[row]; }
-        case 53u: { return five[row]; }
-        case 54u: { return six[row]; }
-        case 55u: { return seven[row]; }
-        case 56u: { return eight[row]; }
-        case 57u: { return nine[row]; }
-        case 65u: { return a[row]; }
-        case 66u: { return b[row]; }
-        case 67u: { return c[row]; }
-        case 68u: { return d[row]; }
-        case 69u: { return e[row]; }
-        case 70u: { return f[row]; }
-        case 71u: { return g[row]; }
-        case 72u: { return h[row]; }
-        case 73u: { return i[row]; }
-        case 75u: { return k[row]; }
-        case 76u: { return l[row]; }
-        case 77u: { return m[row]; }
-        case 78u: { return n[row]; }
-        case 79u: { return o[row]; }
-        case 80u: { return p[row]; }
-        case 82u: { return r[row]; }
-        case 83u: { return s[row]; }
-        case 84u: { return t[row]; }
-        case 85u: { return u[row]; }
-        case 86u: { return v[row]; }
-        case 87u: { return w[row]; }
-        case 89u: { return y[row]; }
-        case 90u: { return z[row]; }
-        default: { return blank[row]; }
-    }
+struct FontGlyph {
+    metrics: vec4<u32>,
+    rows: array<u32, 16>,
 }
 
+struct Font {
+    metrics: vec4<u32>,
+    glyphs: array<FontGlyph, 95>,
+}
+
+@group(0) @binding(1)
+var<storage, read> font: Font;
+
+fn font_bit(code: u32, x: u32, y: u32) -> bool {
+    let first = font.metrics.x;
+    let count = font.metrics.y;
+    let width = font.metrics.z;
+    let height = font.metrics.w;
+    if code < first || code >= first + count || x >= width || y >= height {
+        return false;
+    }
+    let row = font.glyphs[code - first].rows[y];
+    return ((row >> ((width - 1u) - x)) & 1u) != 0u;
+}
 fn icon_row_bits(code: u32, row: u32) -> u32 {
     let pen = array<u32, 8>(0xc0u, 0xe0u, 0x50u, 0x28u, 0x14u, 0x0au, 0x04u, 0x00u);
     let brush = array<u32, 8>(0xe0u, 0xd0u, 0xa8u, 0x44u, 0x22u, 0x12u, 0x0cu, 0x00u);
@@ -285,12 +262,15 @@ fn fs_composite(in: CompositeVertex) -> @location(0) vec4<f32> {
         let kind = u32(row.w + 0.5);
         if kind == 2u {
             luma = mix(luma, 1.0, opacity);
+        } else if kind == 1u {
+            let image = textureSampleLevel(layer_tex, layer_sampler, in.uv, slot, 0.0).r;
+            luma = mix(luma, image, opacity);
         } else {
             let ink = textureSampleLevel(layer_tex, layer_sampler, in.uv, slot, 0.0).r;
             luma = mix(luma, 0.0, ink * opacity);
         }
     }
-    return vec4<f32>(luma, luma, luma, 1.0);
+    return mono(luma, in.position.xy);
 }
 
 @vertex
@@ -339,7 +319,7 @@ fn vs_rect(@builtin(vertex_index) vertex_index: u32,
 
 @fragment
 fn fs_rect(in: RectVertex) -> @location(0) vec4<f32> {
-    return tone_for(in.tone);
+    return tone_for(in.tone, in.position.xy);
 }
 
 @vertex
@@ -347,7 +327,7 @@ fn vs_glyph(@builtin(vertex_index) vertex_index: u32,
     @location(0) origin: vec4<f32>,
     @location(1) attrs: vec4<f32>) -> GlyphVertex {
     let scale = max(origin.z, 1.0);
-    let size = vec2<f32>(5.0 * scale, 7.0 * scale);
+    let size = vec2<f32>(f32(font.metrics.z) * scale, f32(font.metrics.w) * scale);
     let local = corner(vertex_index) * size;
     let p = origin.xy + local;
     var out: GlyphVertex;
@@ -364,15 +344,10 @@ fn fs_glyph(in: GlyphVertex) -> @location(0) vec4<f32> {
     let scale = max(in.scale, 1.0);
     let gx = u32(floor(in.local.x / scale));
     let gy = u32(floor(in.local.y / scale));
-    if gx >= 5u || gy >= 7u {
+    if !font_bit(u32(in.code + 0.5), gx, gy) {
         discard;
     }
-
-    let bits = font_row_bits(u32(in.code + 0.5), gy);
-    if ((bits >> (4u - gx)) & 1u) == 0u {
-        discard;
-    }
-    return tone_for(in.tone);
+    return tone_for(in.tone, in.position.xy);
 }
 
 @vertex
@@ -405,5 +380,5 @@ fn fs_icon(in: IconVertex) -> @location(0) vec4<f32> {
     if ((bits >> (7u - ix)) & 1u) == 0u {
         discard;
     }
-    return tone_for(in.tone);
+    return tone_for(in.tone, in.position.xy);
 }

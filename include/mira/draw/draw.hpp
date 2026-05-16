@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "mira/base/table.hpp"
+#include "mira/draw/font.hpp"
 #include "mira/types.hpp"
 
 namespace mira {
@@ -11,9 +12,14 @@ namespace mira {
 constexpr usize kMaxRects = 2048;
 constexpr usize kMaxGlyphs = 2048;
 constexpr usize kMaxIcons = 8192;
+constexpr f32 kFontWidth = static_cast<f32>(kFontWidthPixels);
+constexpr f32 kFontHeight = static_cast<f32>(kFontHeightPixels);
 
 enum class Tone : u8 {
     kBlack,
+    kDark,
+    kMid,
+    kLight,
     kWhite,
 };
 
@@ -118,7 +124,6 @@ struct DrawView {
 [[nodiscard]] b8 add_stroke(DrawList *list, Rect rect, Tone tone, f32 width = 1.0F);
 [[nodiscard]] b8 add_text(DrawList *list, std::string_view text, f32 x, f32 y, Tone tone,
                           f32 scale = 1.0F);
-[[nodiscard]] b8 add_icon(DrawList *list, Icon icon, f32 x, f32 y, Tone tone,
-                          f32 scale = 1.0F);
+[[nodiscard]] b8 add_icon(DrawList *list, Icon icon, f32 x, f32 y, Tone tone, f32 scale = 1.0F);
 
 } // namespace mira

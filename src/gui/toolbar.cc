@@ -71,23 +71,23 @@ void toollayout(GuiState *state) {
     addhit(state, state->layout.toolbar, HitKind::kToolbar, 0, 20);
 
     for (usize index = 0; index < state->tools.size(); ++index) {
-        const f32 row_y = state->layout.tools.y + static_cast<f32>(index) * 18.0F;
+        const f32 row_y = state->layout.tools.y + static_cast<f32>(index) * 24.0F;
         addhit(state,
-                {.x = state->layout.tools.x,
-                 .y = row_y,
-                 .width = state->layout.tools.width,
-                 .height = 15.0F},
-                HitKind::kTool, static_cast<u8>(index), 85);
+               {.x = state->layout.tools.x,
+                .y = row_y,
+                .width = state->layout.tools.width,
+                .height = 21.0F},
+               HitKind::kTool, static_cast<u8>(index), 85);
     }
 
     for (usize index = 0; index < state->sizes.size(); ++index) {
-        const f32 row_y = state->layout.sizes.y + static_cast<f32>(index) * 18.0F;
+        const f32 row_y = state->layout.sizes.y + static_cast<f32>(index) * 24.0F;
         addhit(state,
-                {.x = state->layout.sizes.x,
-                 .y = row_y,
-                 .width = state->layout.sizes.width,
-                 .height = 15.0F},
-                HitKind::kSize, static_cast<u8>(index), 85);
+               {.x = state->layout.sizes.x,
+                .y = row_y,
+                .width = state->layout.sizes.width,
+                .height = 21.0F},
+               HitKind::kSize, static_cast<u8>(index), 85);
     }
 }
 
@@ -108,53 +108,53 @@ b8 toolmouse(GuiState *state, HitRecord hit) {
 }
 
 void tooldraw(const GuiState &state, DrawList *draws) {
-    drawrect(draws, state.layout.toolbar, Tone::kBlack);
-    drawstroke(draws, state.layout.toolbar, Tone::kWhite);
+    drawrect(draws, state.layout.toolbar, Tone::kWhite);
+    drawstroke(draws, state.layout.toolbar, Tone::kBlack);
     drawrect(draws,
-              {.x = state.layout.sizes.x - 3.0F,
-               .y = state.layout.toolbar.y,
-               .width = 1.0F,
-               .height = state.layout.toolbar.height},
-              Tone::kWhite);
+             {.x = state.layout.sizes.x - 3.0F,
+              .y = state.layout.toolbar.y,
+              .width = 1.0F,
+              .height = state.layout.toolbar.height},
+             Tone::kBlack);
 
     for (usize index = 0; index < state.tools.size(); ++index) {
         const Tool &tool = state.tools[index];
-        const f32 row_y = state.layout.tools.y + static_cast<f32>(index) * 18.0F;
+        const f32 row_y = state.layout.tools.y + static_cast<f32>(index) * 24.0F;
         const Rect row = {
             .x = state.layout.tools.x,
             .y = row_y,
             .width = state.layout.tools.width,
-            .height = 15.0F,
+            .height = 21.0F,
         };
         const b8 hot_row = state.hot_kind == HitKind::kTool && state.hot_index == index;
         const b8 selected = tool.selected != 0;
         const b8 inverted = selected || hot_row;
         if (inverted) {
-            drawrect(draws, row, Tone::kWhite);
+            drawrect(draws, row, Tone::kBlack);
         }
-        const f32 icon_x = row.x + std::max(0.0F, (row.width - 8.0F) * 0.5F);
+        const f32 icon_x = row.x + std::max(0.0F, (row.width - 12.0F) * 0.5F);
         drawicon(draws, toolicon(tool.kind), icon_x, row.y + 4.0F,
-                  inverted ? Tone::kBlack : Tone::kWhite);
+                 inverted ? Tone::kWhite : Tone::kBlack, 1.5F);
     }
 
     for (usize index = 0; index < state.sizes.size(); ++index) {
         const Size &size = state.sizes[index];
-        const f32 row_y = state.layout.sizes.y + static_cast<f32>(index) * 18.0F;
+        const f32 row_y = state.layout.sizes.y + static_cast<f32>(index) * 24.0F;
         const Rect row = {
             .x = state.layout.sizes.x,
             .y = row_y,
             .width = state.layout.sizes.width,
-            .height = 15.0F,
+            .height = 21.0F,
         };
         const b8 hot_row = state.hot_kind == HitKind::kSize && state.hot_index == index;
         const b8 selected = size.selected != 0;
         const b8 inverted = selected || hot_row;
         if (inverted) {
-            drawrect(draws, row, Tone::kWhite);
+            drawrect(draws, row, Tone::kBlack);
         }
-        const f32 icon_x = row.x + std::max(0.0F, (row.width - 8.0F) * 0.5F);
+        const f32 icon_x = row.x + std::max(0.0F, (row.width - 12.0F) * 0.5F);
         drawicon(draws, sizeicon(size.index), icon_x, row.y + 4.0F,
-                  inverted ? Tone::kBlack : Tone::kWhite);
+                 inverted ? Tone::kWhite : Tone::kBlack, 1.5F);
     }
 }
 

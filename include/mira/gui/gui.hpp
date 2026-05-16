@@ -13,14 +13,16 @@ namespace mira {
 constexpr usize kMaxLayers = 16;
 constexpr usize kMaxTools = 8;
 constexpr usize kMaxSizes = 8;
-constexpr usize kMaxPaintStamps = 4096;
+constexpr usize kMaxPaintStamps = 32768;
+constexpr usize kMaxStrokeActions = 1024;
+constexpr usize kMaxHistoryStamps = 32768;
 constexpr usize kMaxInputEvents = 128;
 constexpr usize kMaxHitRecords = 128;
 constexpr usize kLayerNameBytes = 16;
 constexpr usize kToolNameBytes = 8;
 constexpr u8 kNoLayer = 0xFFU;
 constexpr u8 kNoMenu = 0xFFU;
-constexpr u8 kCanvasTextureSlot = static_cast<u8>(kMaxLayers - 1U);
+constexpr u8 kBackgroundTextureSlot = static_cast<u8>(kMaxLayers - 1U);
 
 constexpr u8 kLayerVisible = 1U << 0U;
 constexpr u8 kLayerLocked = 1U << 1U;
@@ -29,8 +31,8 @@ constexpr u8 kLayerBottom = 1U << 3U;
 
 enum class LayerKind : u8 {
     kInk,
-    kReference,
-    kPaper,
+    kImage,
+    kBackground,
 };
 
 struct Layer {
@@ -81,6 +83,14 @@ struct PaintStamp {
 };
 static_assert(sizeof(PaintStamp) == 32);
 
+struct StrokeAction {
+    u32 layer_id = 0;
+    u32 first_stamp = 0;
+    u32 stamp_count = 0;
+    Rect affected = {};
+};
+static_assert(sizeof(StrokeAction) == 28);
+
 enum class InputKind : u8 {
     kMouseMove,
     kMouseDown,
@@ -99,6 +109,8 @@ enum class Key : u8 {
     kEscape,
     kBackspace,
     kDelete,
+    kUndo,
+    kRedo,
 };
 
 struct InputEvent {
@@ -129,6 +141,9 @@ enum class HitKind : u8 {
 };
 
 enum class MenuAction : u8 {
+    kNone,
+    kFileNew,
+    kFileImport,
     kLayerNew,
     kLayerDelete,
     kLayerRename,
@@ -176,6 +191,8 @@ struct GuiState {
     Table<Tool, kMaxTools> tools;
     Table<Size, kMaxSizes> sizes;
     Table<PaintStamp, kMaxPaintStamps> paint_stamps;
+    Table<StrokeAction, kMaxStrokeActions> strokes;
+    Table<PaintStamp, kMaxHistoryStamps> stroke_stamps;
     Table<u8, kMaxLayers> clear_slots;
     Table<HitRecord, kMaxHitRecords> hits;
     Document document;
@@ -193,6 +210,11 @@ struct GuiState {
     u8 active_menu = kNoMenu;
     u8 renaming_layer = kNoLayer;
     u32 next_layer_id = 1;
+    u32 stroke_cursor = 0;
+    u32 active_stroke_first = 0;
+    u32 active_stroke_count = 0;
+    u32 active_stroke_layer = 0;
+    Rect active_stroke_rect = {};
     f32 last_paint_x = 0.0F;
     f32 last_paint_y = 0.0F;
     i16 last_pan_x = 0;
@@ -203,6 +225,8 @@ struct GuiState {
     b8 panning = false;
     b8 setting_opacity = false;
     b8 rename_replace = false;
+    b8 recording_stroke = false;
+    b8 replay_strokes = false;
 };
 
 [[nodiscard]] std::string_view layername(const Layer &layer);
@@ -214,16 +238,18 @@ struct GuiState {
 [[nodiscard]] Icon sizeicon(u8 index);
 [[nodiscard]] Icon brushicon(u8 index);
 void guiinit(GuiState *state);
+void docnew(GuiState *state, i32 width = 320, i32 height = 240);
 void guilayout(GuiState *state, Screen screen);
 void guievent(GuiState *state, std::span<const InputEvent> input);
 void guidraw(const GuiState &state, DrawList *draws);
-void guiframe(GuiState *state, Screen screen, std::span<const InputEvent> input,
-                     DrawList *draws);
+void guiframe(GuiState *state, Screen screen, std::span<const InputEvent> input, DrawList *draws);
 [[nodiscard]] b8 layeradd(GuiState *state, std::string_view name);
+[[nodiscard]] u8 layerimage(GuiState *state, std::string_view name, u8 opacity = 128);
 [[nodiscard]] b8 layerdel(GuiState *state);
 [[nodiscard]] b8 layerrename(GuiState *state, u8 index, std::string_view name);
 [[nodiscard]] b8 layeredit(GuiState *state);
 [[nodiscard]] HitRecord guihit(const GuiState &state, i32 x, i32 y);
+[[nodiscard]] MenuAction menuaction(const GuiState &state, HitRecord hit);
 [[nodiscard]] const Layer *layercur(const GuiState &state);
 [[nodiscard]] const Tool *toolcur(const GuiState &state);
 

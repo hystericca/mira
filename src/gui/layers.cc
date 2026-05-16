@@ -3,6 +3,27 @@
 namespace mira {
 namespace impl = gui;
 
+namespace {
+
+[[nodiscard]] auto background_index(const GuiState &state) -> usize {
+    for (usize index = 0; index < state.layers.size(); ++index) {
+        if (impl::isbackground(state.layers[index])) {
+            return index;
+        }
+    }
+    return state.layers.size();
+}
+
+[[nodiscard]] auto image_insert(const GuiState &state) -> usize {
+    const usize bottom = background_index(state);
+    if (state.curlayer < bottom) {
+        return std::min(bottom, static_cast<usize>(state.curlayer) + 1U);
+    }
+    return bottom;
+}
+
+} // namespace
+
 std::string_view layername(const Layer &layer) { return impl::fixname(layer.name); }
 
 b8 layervisible(const Layer &layer) { return impl::layerflag(layer, kLayerVisible); }
@@ -13,7 +34,7 @@ b8 layerselected(const Layer &layer) { return impl::layerflag(layer, kLayerSelec
 
 bool layerrename(GuiState *state, u8 index, std::string_view name) {
     if (state == nullptr || index >= state->layers.size() ||
-        impl::iscanvas(state->layers[index])) {
+        impl::isbackground(state->layers[index])) {
         return false;
     }
     impl::copy_name(&state->layers[index].name, name);
@@ -39,9 +60,8 @@ bool layeradd(GuiState *state, std::string_view name) {
 
     const u32 id = state->next_layer_id;
     ++state->next_layer_id;
-    Layer layer =
-        impl::mklayer(id, name.empty() ? "Layer" : name, LayerKind::kInk, 255, true, false,
-                         false, slot, false);
+    Layer layer = impl::mklayer(id, name.empty() ? "layer" : name, LayerKind::kInk, 255, true,
+                                false, false, slot, false);
     if (name.empty()) {
         impl::genlayername(&layer.name, id);
     }
@@ -55,16 +75,47 @@ bool layeradd(GuiState *state, std::string_view name) {
     return true;
 }
 
+u8 layerimage(GuiState *state, std::string_view name, u8 opacity) {
+    if (state == nullptr) {
+        return kNoLayer;
+    }
+    if (!state->initialized) {
+        guiinit(state);
+    }
+    if (state->layers.size() >= state->layers.capacity()) {
+        state->layers.overflowed = true;
+        return kNoLayer;
+    }
+    const u8 slot = impl::freeslot(*state);
+    if (slot == kNoLayer) {
+        state->layers.overflowed = true;
+        return kNoLayer;
+    }
+
+    const u32 id = state->next_layer_id;
+    ++state->next_layer_id;
+    Layer layer = impl::mklayer(id, name.empty() ? "image" : name, LayerKind::kImage, opacity, true,
+                                true, false, slot, false);
+
+    const usize insert_at = image_insert(*state);
+    if (!state->layers.insert(insert_at, layer)) {
+        return kNoLayer;
+    }
+    impl::select_layer(state, static_cast<u8>(insert_at));
+    return static_cast<u8>(insert_at);
+}
+
 bool layerdel(GuiState *state) {
     if (state == nullptr || state->curlayer >= state->layers.size()) {
         return false;
     }
     const usize remove_at = state->curlayer;
     const Layer &layer = state->layers[remove_at];
-    if (impl::iscanvas(layer)) {
+    if (impl::isbackground(layer)) {
         return false;
     }
     const u8 slot = layer.texture_slot;
+    impl::historyclear(state);
     if (!state->layers.erase(remove_at)) {
         return false;
     }
@@ -83,7 +134,7 @@ bool layerdel(GuiState *state) {
 
 bool layeredit(GuiState *state) {
     if (state == nullptr || state->curlayer >= state->layers.size() ||
-        impl::iscanvas(state->layers[state->curlayer])) {
+        impl::isbackground(state->layers[state->curlayer])) {
         return false;
     }
     state->renaming_layer = state->curlayer;
@@ -107,12 +158,12 @@ void opacityat(GuiState *state, u8 index, i32 x) {
     if (index >= state->layers.size()) {
         return;
     }
-    const f32 row_y = state->layout.layerrows.y + static_cast<f32>(index) * 28.0F;
+    const f32 row_y = state->layout.layerrows.y + static_cast<f32>(index) * 36.0F;
     const Rect bar = {
-        .x = state->layout.layerrows.x + 17.0F,
-        .y = row_y + 18.0F,
-        .width = std::max(1.0F, state->layout.layerrows.width - 24.0F),
-        .height = 3.0F,
+        .x = state->layout.layerrows.x + 22.0F,
+        .y = row_y + 24.0F,
+        .width = std::max(1.0F, state->layout.layerrows.width - 30.0F),
+        .height = 4.0F,
     };
     const f32 t = std::clamp((static_cast<f32>(x) - bar.x) / bar.width, 0.0F, 1.0F);
     state->layers[index].opacity_u8 = static_cast<u8>(std::round(t * 255.0F));
@@ -141,7 +192,7 @@ void nameadd(GuiState *state, char c) {
         return;
     }
     Layer &layer = state->layers[state->renaming_layer];
-    if (iscanvas(layer)) {
+    if (isbackground(layer)) {
         layerdone(state);
         return;
     }
@@ -162,7 +213,7 @@ void layerdone(GuiState *state) {
     if (state->renaming_layer < state->layers.size() &&
         layername(state->layers[state->renaming_layer]).empty()) {
         genlayername(&state->layers[state->renaming_layer].name,
-                                   state->layers[state->renaming_layer].id);
+                     state->layers[state->renaming_layer].id);
     }
     state->renaming_layer = kNoLayer;
     state->rename_replace = false;
@@ -172,30 +223,30 @@ void layerlayout(GuiState *state) {
     addhit(state, state->layout.layers, HitKind::kSidebar, 0, 20);
 
     for (usize index = 0; index < state->layers.size(); ++index) {
-        const f32 row_y = state->layout.layerrows.y + static_cast<f32>(index) * 28.0F;
+        const f32 row_y = state->layout.layerrows.y + static_cast<f32>(index) * 36.0F;
         const Rect row = {
             .x = state->layout.layerrows.x,
             .y = row_y,
             .width = state->layout.layerrows.width,
-            .height = 25.0F,
+            .height = 33.0F,
         };
         const Rect visible = {
-            .x = row.x + 5.0F,
-            .y = row.y + 6.0F,
-            .width = 7.0F,
-            .height = 7.0F,
-        };
-        const Rect lock = {
-            .x = row.x + 15.0F,
-            .y = row.y + 5.0F,
+            .x = row.x + 6.0F,
+            .y = row.y + 8.0F,
             .width = 9.0F,
             .height = 9.0F,
         };
+        const Rect lock = {
+            .x = row.x + 20.0F,
+            .y = row.y + 7.0F,
+            .width = 11.0F,
+            .height = 11.0F,
+        };
         const Rect opacity = {
-            .x = row.x + 17.0F,
-            .y = row.y + 18.0F,
-            .width = std::max(1.0F, row.width - 24.0F),
-            .height = 3.0F,
+            .x = row.x + 22.0F,
+            .y = row.y + 24.0F,
+            .width = std::max(1.0F, row.width - 30.0F),
+            .height = 4.0F,
         };
         addhit(state, row, HitKind::kLayerRow, static_cast<u8>(index), 80);
         addhit(state, visible, HitKind::kLayerVisibility, static_cast<u8>(index), 95);
@@ -216,7 +267,7 @@ b8 layermouse(GuiState *state, HitRecord hit, i32 x) {
         layerdone(state);
         state->active_menu = kNoMenu;
         Layer &layer = state->layers[hit.index];
-        if (!iscanvas(layer)) {
+        if (!isbackground(layer)) {
             setlayerflag(&layer, kLayerLocked, !layerlocked(layer));
         }
         return true;
@@ -269,59 +320,75 @@ void layermove(GuiState *state, i32 x) {
 }
 
 void layerdraw(const GuiState &state, DrawList *draws) {
-    drawrect(draws, state.layout.layers, Tone::kBlack);
-    drawstroke(draws, state.layout.layers, Tone::kWhite);
-    drawtext(draws, "LAYERS", state.layout.layers.x + 7.0F, state.layout.layers.y + 7.0F,
-              Tone::kWhite);
+    drawrect(draws, state.layout.layers, Tone::kWhite);
+    drawstroke(draws, state.layout.layers, Tone::kBlack);
+    const Rect tag = {
+        .x = state.layout.layers.x + 1.0F,
+        .y = state.layout.layers.y + 1.0F,
+        .width = std::max(1.0F, state.layout.layers.width - 2.0F),
+        .height = 21.0F,
+    };
+    drawrect(draws, tag, Tone::kLight);
+    drawrect(draws,
+             {.x = state.layout.layers.x,
+              .y = state.layout.layers.y + 22.0F,
+              .width = state.layout.layers.width,
+              .height = 1.0F},
+             Tone::kBlack);
+    drawtext(draws, "layers", state.layout.layers.x + 8.0F, state.layout.layers.y + 5.0F,
+             Tone::kBlack);
 
     for (usize index = 0; index < state.layers.size(); ++index) {
         const Layer &layer = state.layers[index];
-        const f32 row_y = state.layout.layerrows.y + static_cast<f32>(index) * 28.0F;
+        const f32 row_y = state.layout.layerrows.y + static_cast<f32>(index) * 36.0F;
         const Rect row = {
             .x = state.layout.layerrows.x,
             .y = row_y,
             .width = state.layout.layerrows.width,
-            .height = 25.0F,
+            .height = 33.0F,
         };
         const b8 hot_row =
             (state.hot_kind == HitKind::kLayerRow || state.hot_kind == HitKind::kLayerVisibility ||
              state.hot_kind == HitKind::kLayerLock || state.hot_kind == HitKind::kLayerOpacity) &&
             state.hot_index == index;
         const b8 selected = layerselected(layer);
-        const b8 inverted = selected || hot_row;
-        if (selected || hot_row) {
-            drawrect(draws, row, Tone::kWhite);
+        const b8 inverted = selected;
+        if (selected) {
+            drawrect(draws, row, Tone::kBlack);
+        } else if (hot_row) {
+            drawrect(draws, row, Tone::kLight);
+            drawstroke(draws, row, Tone::kBlack);
         }
 
-        const Rect eye = {.x = row.x + 5.0F, .y = row.y + 6.0F, .width = 7.0F, .height = 7.0F};
+        const Rect eye = {.x = row.x + 6.0F, .y = row.y + 8.0F, .width = 9.0F, .height = 9.0F};
         if (layervisible(layer)) {
-            drawrect(draws, eye, inverted ? Tone::kBlack : Tone::kWhite);
+            drawrect(draws, eye, inverted ? Tone::kWhite : Tone::kBlack);
         }
-        drawstroke(draws, eye, inverted ? Tone::kBlack : Tone::kWhite);
-        drawicon(draws, layerlocked(layer) ? Icon::kLockClosed : Icon::kLockOpen,
-                  row.x + 15.0F, row.y + 5.0F, inverted ? Tone::kBlack : Tone::kWhite);
-        layernametext(draws, layer, row.x + 27.0F, row.y + 4.0F,
-                        inverted ? Tone::kBlack : Tone::kWhite);
+        drawstroke(draws, eye, inverted ? Tone::kWhite : Tone::kBlack);
+        drawicon(draws, layerlocked(layer) ? Icon::kLockClosed : Icon::kLockOpen, row.x + 20.0F,
+                 row.y + 7.0F, inverted ? Tone::kWhite : Tone::kBlack);
+        layernametext(draws, layer, row.x + 36.0F, row.y + 5.0F,
+                      inverted ? Tone::kWhite : Tone::kBlack);
         if (state.renaming_layer == index) {
-            const f32 cursor_x = row.x + 27.0F + static_cast<f32>(layername(layer).size()) * 6.0F;
-            drawrect(draws,
-                      {.x = cursor_x, .y = row.y + 4.0F, .width = 1.0F, .height = 7.0F},
-                      inverted ? Tone::kBlack : Tone::kWhite);
+            const f32 cursor_x =
+                row.x + 36.0F + static_cast<f32>(layername(layer).size()) * kFontWidth;
+            drawrect(draws, {.x = cursor_x, .y = row.y + 5.0F, .width = 1.0F, .height = 13.0F},
+                     inverted ? Tone::kWhite : Tone::kBlack);
         }
         const Rect bar = {
-            .x = row.x + 17.0F,
-            .y = row.y + 18.0F,
-            .width = std::max(1.0F, row.width - 24.0F),
-            .height = 3.0F,
+            .x = row.x + 22.0F,
+            .y = row.y + 24.0F,
+            .width = std::max(1.0F, row.width - 30.0F),
+            .height = 4.0F,
         };
-        drawstroke(draws, bar, inverted ? Tone::kBlack : Tone::kWhite);
+        drawstroke(draws, bar, inverted ? Tone::kWhite : Tone::kBlack);
         drawrect(
             draws,
             {.x = bar.x,
              .y = bar.y,
              .width = std::max(1.0F, bar.width * (static_cast<f32>(layer.opacity_u8) / 255.0F)),
              .height = bar.height},
-            inverted ? Tone::kBlack : Tone::kWhite);
+            inverted ? Tone::kWhite : Tone::kBlack);
     }
 }
 

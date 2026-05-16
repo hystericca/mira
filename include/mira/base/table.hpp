@@ -24,6 +24,17 @@ template <typename T, usize Capacity> class Table {
         overflowed = false;
     }
 
+    constexpr void truncate(usize size) {
+        if (size >= size_) {
+            return;
+        }
+        for (usize index = size; index < size_; ++index) {
+            values_[index] = {};
+        }
+        size_ = size;
+        overflowed = false;
+    }
+
     [[nodiscard]] constexpr usize size() const { return size_; }
     [[nodiscard]] static constexpr usize capacity() { return Capacity; }
     [[nodiscard]] constexpr b8 empty() const { return size_ == 0; }

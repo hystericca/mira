@@ -23,9 +23,11 @@ source_set("mira_core") {
   sources = [
     "include/mira/base/table.hpp",
     "include/mira/draw/draw.hpp",
+    "include/mira/draw/font.hpp",
     "include/mira/gui/gui.hpp",
     "include/mira/types.hpp",
     "src/draw/draw.cc",
+    "src/draw/font.cc",
     "src/gui/frame.cc",
     "src/gui/layers.cc",
     "src/gui/menu_bar.cc",
@@ -74,6 +76,7 @@ if (is_wasm) {
     sources = [
       "include/mira/web/web.hpp",
       "$target_gen_dir/draw_shader.hpp",
+      "src/web/file.cc",
       "src/web/main.cc",
       "src/web/web.cc",
     ]
@@ -90,6 +93,7 @@ if (is_wasm) {
       "-sALLOW_MEMORY_GROWTH=1",
       "-sASYNCIFY",
       "-sEXIT_RUNTIME=0",
+      "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_mira_import_image_ready']",
       "--shell-file=" + rebase_path("web/index.html", root_build_dir),
     ]
   }

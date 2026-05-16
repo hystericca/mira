@@ -61,6 +61,7 @@ void focus_canvas() { emscripten_run_script("document.getElementById('canvas').f
 } // namespace
 
 auto Web::init() -> b8 {
+    install_file_import();
     wgpu::InstanceDescriptor instance_descriptor = {};
     static constexpr auto kTimedWaitAny = wgpu::InstanceFeatureName::TimedWaitAny;
     instance_descriptor.requiredFeatureCount = 1;
@@ -244,6 +245,9 @@ auto Web::on_mouse_down(int, const EmscriptenMouseEvent *event, void *user_data)
     auto *app = static_cast<Web *>(user_data);
     if (app != nullptr && event != nullptr) {
         focus_canvas();
+        if (app->menu_action_at(*event) == MenuAction::kFileImport) {
+            app->open_image_picker();
+        }
         app->push_mouse_event(InputKind::kMouseDown, *event);
     }
     return true;
@@ -290,16 +294,15 @@ void Web::install_input() {
     emscripten_set_mousedown_callback(kCanvasSelector, this, true, &Web::on_mouse_down);
     emscripten_set_mouseup_callback(kCanvasSelector, this, true, &Web::on_mouse_up);
     emscripten_set_wheel_callback(kCanvasSelector, this, true, &Web::on_wheel);
-    emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true,
-                                    &Web::on_key_down);
+    emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, &Web::on_key_down);
 }
 
-void Web::push_mouse_event(InputKind kind, const EmscriptenMouseEvent &event) {
+auto Web::mouse_point(const EmscriptenMouseEvent &event) const -> MousePoint {
     double css_width = 0.0;
     double css_height = 0.0;
     emscripten_get_element_css_size(kCanvasSelector, &css_width, &css_height);
     if (css_width <= 0.0 || css_height <= 0.0 || screen_.scale <= 0) {
-        return;
+        return {};
     }
 
     const f32 physical_x =
@@ -310,18 +313,34 @@ void Web::push_mouse_event(InputKind kind, const EmscriptenMouseEvent &event) {
                              std::max(0, screen_.width - 1));
     const i32 y = std::clamp(static_cast<i32>(std::floor(physical_y / screen_.scale)), 0,
                              std::max(0, screen_.height - 1));
+    return {.x = x, .y = y, .ok = true};
+}
+
+auto Web::menu_action_at(const EmscriptenMouseEvent &event) const -> MenuAction {
+    const MousePoint point = mouse_point(event);
+    if (!point.ok) {
+        return MenuAction::kNone;
+    }
+    return menuaction(gui_, guihit(gui_, point.x, point.y));
+}
+
+void Web::push_mouse_event(InputKind kind, const EmscriptenMouseEvent &event) {
+    const MousePoint point = mouse_point(event);
+    if (!point.ok) {
+        return;
+    }
     InputEvent input = {};
     input.kind = kind;
     input.button = static_cast<u8>(event.button);
     input.buttons = static_cast<u8>(event.buttons & 0xFFU);
-    input.mods = static_cast<u8>((event.ctrlKey ? kInputCtrl : 0U) |
-                                 (event.shiftKey ? kInputShift : 0U));
-    input.x = x;
-    input.y = y;
-    input.dx = static_cast<i32>(std::round(static_cast<double>(event.movementX) /
-                                           static_cast<double>(screen_.scale)));
-    input.dy = static_cast<i32>(std::round(static_cast<double>(event.movementY) /
-                                           static_cast<double>(screen_.scale)));
+    input.mods =
+        static_cast<u8>((event.ctrlKey ? kInputCtrl : 0U) | (event.shiftKey ? kInputShift : 0U));
+    input.x = point.x;
+    input.y = point.y;
+    input.dx = static_cast<i32>(
+        std::round(static_cast<double>(event.movementX) / static_cast<double>(screen_.scale)));
+    input.dy = static_cast<i32>(
+        std::round(static_cast<double>(event.movementY) / static_cast<double>(screen_.scale)));
     (void)input_events_.push(input);
     draw_dirty_ = true;
 }
@@ -350,10 +369,10 @@ void Web::push_wheel_event(const EmscriptenWheelEvent &event) {
         unit = std::max(1.0, static_cast<double>(height_) * 0.5);
     }
 
-    i32 dx = static_cast<i32>(std::round((event.deltaX * unit) /
-                                         static_cast<double>(screen_.scale)));
-    i32 dy = static_cast<i32>(std::round((event.deltaY * unit) /
-                                         static_cast<double>(screen_.scale)));
+    i32 dx =
+        static_cast<i32>(std::round((event.deltaX * unit) / static_cast<double>(screen_.scale)));
+    i32 dy =
+        static_cast<i32>(std::round((event.deltaY * unit) / static_cast<double>(screen_.scale)));
     if (dx == 0 && event.deltaX != 0.0) {
         dx = event.deltaX < 0.0 ? -1 : 1;
     }
@@ -377,7 +396,17 @@ void Web::push_wheel_event(const EmscriptenWheelEvent &event) {
 
 void Web::push_key_down_event(const EmscriptenKeyboardEvent &event) {
     Key key = Key::kNone;
-    if (key_is(event, "Enter")) {
+    const b8 command = event.ctrlKey || event.metaKey;
+    if (command && event.key[1] == '\0') {
+        const char c = event.key[0] >= 'A' && event.key[0] <= 'Z'
+                           ? static_cast<char>(event.key[0] + ('a' - 'A'))
+                           : event.key[0];
+        if (c == 'z') {
+            key = event.shiftKey ? Key::kRedo : Key::kUndo;
+        } else if (c == 'y') {
+            key = Key::kRedo;
+        }
+    } else if (key_is(event, "Enter")) {
         key = Key::kEnter;
     } else if (key_is(event, "Escape")) {
         key = Key::kEscape;
@@ -402,8 +431,7 @@ void Web::push_key_down_event(const EmscriptenKeyboardEvent &event) {
     InputEvent input = {};
     input.kind = InputKind::kKeyDown;
     input.button = static_cast<u8>(key);
-    input.mods = static_cast<u8>((event.ctrlKey ? kInputCtrl : 0U) |
-                                 (event.shiftKey ? kInputShift : 0U));
+    input.mods = static_cast<u8>((command ? kInputCtrl : 0U) | (event.shiftKey ? kInputShift : 0U));
     (void)input_events_.push(input);
     draw_dirty_ = true;
 }
@@ -473,6 +501,15 @@ auto Web::make_pipeline() -> b8 {
     if (uniform_buffer_ == nullptr) {
         return false;
     }
+    wgpu::BufferDescriptor font_buffer_descriptor = {};
+    font_buffer_descriptor.size = sizeof(GpuFont);
+    font_buffer_descriptor.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
+    font_buffer_ = device_.CreateBuffer(&font_buffer_descriptor);
+    if (font_buffer_ == nullptr) {
+        return false;
+    }
+    const GpuFont &text_font = font();
+    queue_.WriteBuffer(font_buffer_, 0, &text_font, sizeof(GpuFont));
 
     rect_buffer_ = make_vertex_buffer(device_, kRectBufferBytes);
     glyph_buffer_ = make_vertex_buffer(device_, kGlyphBufferBytes);
@@ -490,12 +527,17 @@ auto Web::make_pipeline() -> b8 {
         return false;
     }
 
-    std::array<wgpu::BindGroupLayoutEntry, 1> bind_group_layout_entries = {};
+    std::array<wgpu::BindGroupLayoutEntry, 2> bind_group_layout_entries = {};
     bind_group_layout_entries[0].binding = 0;
     bind_group_layout_entries[0].visibility =
         wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
     bind_group_layout_entries[0].buffer.type = wgpu::BufferBindingType::Uniform;
     bind_group_layout_entries[0].buffer.minBindingSize = sizeof(Frame);
+    bind_group_layout_entries[1].binding = 1;
+    bind_group_layout_entries[1].visibility =
+        wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
+    bind_group_layout_entries[1].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
+    bind_group_layout_entries[1].buffer.minBindingSize = sizeof(GpuFont);
 
     wgpu::BindGroupLayoutDescriptor bind_group_layout_descriptor = {};
     bind_group_layout_descriptor.entryCount = bind_group_layout_entries.size();
@@ -537,7 +579,7 @@ auto Web::make_pipeline() -> b8 {
     }
 
     std::array<wgpu::BindGroupLayout, 2> composite_layouts = {bind_group_layout_,
-                                                             layer_bind_group_layout_};
+                                                              layer_bind_group_layout_};
     wgpu::PipelineLayoutDescriptor composite_layout_descriptor = {};
     composite_layout_descriptor.bindGroupLayoutCount = composite_layouts.size();
     composite_layout_descriptor.bindGroupLayouts = composite_layouts.data();
@@ -547,11 +589,15 @@ auto Web::make_pipeline() -> b8 {
         return false;
     }
 
-    std::array<wgpu::BindGroupEntry, 1> bind_group_entries = {};
+    std::array<wgpu::BindGroupEntry, 2> bind_group_entries = {};
     bind_group_entries[0].binding = 0;
     bind_group_entries[0].buffer = uniform_buffer_;
     bind_group_entries[0].offset = 0;
     bind_group_entries[0].size = sizeof(Frame);
+    bind_group_entries[1].binding = 1;
+    bind_group_entries[1].buffer = font_buffer_;
+    bind_group_entries[1].offset = 0;
+    bind_group_entries[1].size = sizeof(GpuFont);
 
     wgpu::BindGroupDescriptor bind_group_descriptor = {};
     bind_group_descriptor.layout = bind_group_layout_;

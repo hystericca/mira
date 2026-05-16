@@ -7,6 +7,7 @@
 #include <webgpu/webgpu_cpp.h>
 
 #include <array>
+#include <string_view>
 
 namespace mira {
 
@@ -14,11 +15,19 @@ class Web {
   public:
     [[nodiscard]] auto init() -> b8;
     void frame();
+    void import_image_ready(i32 width, i32 height, const u8 *pixels, usize byte_count,
+                            std::string_view name);
 
   private:
     struct CanvasPixelSize {
         u32 width = 1;
         u32 height = 1;
+    };
+
+    struct MousePoint {
+        i32 x = 0;
+        i32 y = 0;
+        b8 ok = false;
     };
 
     struct Frame {
@@ -65,9 +74,14 @@ class Web {
     static void on_error(const wgpu::Device &, wgpu::ErrorType, wgpu::StringView, Web *app);
 
     void install_input();
+    [[nodiscard]] auto mouse_point(const EmscriptenMouseEvent &event) const -> MousePoint;
+    [[nodiscard]] auto menu_action_at(const EmscriptenMouseEvent &event) const -> MenuAction;
     void push_mouse_event(InputKind kind, const EmscriptenMouseEvent &event);
     void push_wheel_event(const EmscriptenWheelEvent &event);
     void push_key_down_event(const EmscriptenKeyboardEvent &event);
+    void install_file_import();
+    void open_image_picker();
+    [[nodiscard]] auto upload_layer(u8 slot, const u8 *pixels, usize byte_count) -> b8;
     [[nodiscard]] auto choose_surface() -> b8;
     [[nodiscard]] auto resize() -> b8;
     [[nodiscard]] auto make_pipeline() -> b8;
@@ -84,6 +98,7 @@ class Web {
     wgpu::Queue queue_;
     wgpu::Surface surface_;
     wgpu::Buffer uniform_buffer_;
+    wgpu::Buffer font_buffer_;
     wgpu::Buffer rect_buffer_;
     wgpu::Buffer glyph_buffer_;
     wgpu::Buffer icon_buffer_;

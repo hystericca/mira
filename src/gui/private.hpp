@@ -20,26 +20,41 @@ struct MenuCommand {
 };
 
 inline constexpr std::array<MenuItem, 5> kMenuItems = {{
-    {"MIRA", 0},
-    {"FILE", 1},
-    {"EDIT", 2},
-    {"LAYER", 3},
-    {"VIEW", 4},
+    {"mira", 0},
+    {"file", 1},
+    {"edit", 2},
+    {"layer", 3},
+    {"view", 4},
+}};
+
+inline constexpr u8 kFileMenu = 1;
+inline constexpr u8 kLayerMenu = 3;
+
+inline constexpr std::array<MenuCommand, 2> kFileMenuCommands = {{
+    {"new", MenuAction::kFileNew},
+    {"import", MenuAction::kFileImport},
 }};
 
 inline constexpr std::array<MenuCommand, 3> kLayerMenuCommands = {{
-    {"NEW", MenuAction::kLayerNew},
-    {"DEL", MenuAction::kLayerDelete},
-    {"NAME", MenuAction::kLayerRename},
+    {"new", MenuAction::kLayerNew},
+    {"del", MenuAction::kLayerDelete},
+    {"name", MenuAction::kLayerRename},
 }};
 
-inline constexpr usize kLayerMenuCommandCount = kLayerMenuCommands.size();
+[[nodiscard]] inline auto menucommands(u8 menu) -> std::span<const MenuCommand> {
+    if (menu == kFileMenu) {
+        return std::span<const MenuCommand>(kFileMenuCommands);
+    }
+    if (menu == kLayerMenu) {
+        return std::span<const MenuCommand>(kLayerMenuCommands);
+    }
+    return {};
+}
 
 [[nodiscard]] inline auto contains(Rect rect, i32 x, i32 y) -> b8 {
     const f32 px = static_cast<f32>(x);
     const f32 py = static_cast<f32>(y);
-    return px >= rect.x && py >= rect.y && px < rect.x + rect.width &&
-           py < rect.y + rect.height;
+    return px >= rect.x && py >= rect.y && px < rect.x + rect.width && py < rect.y + rect.height;
 }
 
 [[nodiscard]] inline auto containsrect(Rect outer, Rect inner) -> b8 {
@@ -69,15 +84,15 @@ inline constexpr usize kLayerMenuCommandCount = kLayerMenuCommands.size();
     return {
         .x = x,
         .y = 0.0F,
-        .width = static_cast<f32>(text.size() * 6U + 12U),
-        .height = 14.0F,
+        .width = static_cast<f32>(text.size()) * kFontWidth + 12.0F,
+        .height = 18.0F,
     };
 }
 
-[[nodiscard]] inline auto layermenux() -> f32 {
+[[nodiscard]] inline auto menux(u8 menu) -> f32 {
     f32 menu_x = 4.0F;
     for (const MenuItem item : kMenuItems) {
-        if (item.index == 3) {
+        if (item.index == menu) {
             return menu_x;
         }
         menu_x += menurect(item.text, menu_x).width + 1.0F;
@@ -85,12 +100,20 @@ inline constexpr usize kLayerMenuCommandCount = kLayerMenuCommands.size();
     return 4.0F;
 }
 
-[[nodiscard]] inline auto menucmdrect(u8 index) -> Rect {
+[[nodiscard]] inline auto menucmdwidth(u8 menu) -> f32 {
+    f32 width = 45.0F;
+    for (const MenuCommand command : menucommands(menu)) {
+        width = std::max(width, static_cast<f32>(command.text.size()) * kFontWidth + 10.0F);
+    }
+    return width;
+}
+
+[[nodiscard]] inline auto menucmdrect(u8 menu, u8 index) -> Rect {
     return {
-        .x = layermenux(),
-        .y = 14.0F + static_cast<f32>(index) * 13.0F,
-        .width = 45.0F,
-        .height = 13.0F,
+        .x = menux(menu),
+        .y = 18.0F + static_cast<f32>(index) * 15.0F,
+        .width = menucmdwidth(menu),
+        .height = 15.0F,
     };
 }
 
@@ -126,13 +149,13 @@ inline void setlayerflag(Layer *layer, u8 flag, b8 enabled) {
     }
 }
 
-[[nodiscard]] inline auto iscanvas(const Layer &layer) -> b8 {
-    return layerflag(layer, kLayerBottom) || layer.kind == LayerKind::kPaper;
+[[nodiscard]] inline auto isbackground(const Layer &layer) -> b8 {
+    return layerflag(layer, kLayerBottom) || layer.kind == LayerKind::kBackground;
 }
 
 [[nodiscard]] inline auto mklayer(u32 id, std::string_view name, LayerKind kind, u8 opacity,
-                                     b8 visible, b8 locked, b8 selected, u8 texture_slot,
-                                     b8 bottom) -> Layer {
+                                  b8 visible, b8 locked, b8 selected, u8 texture_slot, b8 bottom)
+    -> Layer {
     Layer layer = {};
     layer.id = id;
     layer.flags = 0;
@@ -148,7 +171,7 @@ inline void setlayerflag(Layer *layer, u8 flag, b8 enabled) {
 }
 
 inline void pushlayer(GuiState *state, u32 id, std::string_view name, LayerKind kind, u8 opacity,
-                       b8 visible, b8 locked, b8 selected, u8 texture_slot, b8 bottom) {
+                      b8 visible, b8 locked, b8 selected, u8 texture_slot, b8 bottom) {
     (void)state->layers.push(
         mklayer(id, name, kind, opacity, visible, locked, selected, texture_slot, bottom));
 }
@@ -181,7 +204,7 @@ inline void markclear(GuiState *state, u8 slot) {
 }
 
 inline void genlayername(std::array<char, kLayerNameBytes> *name, u32 id) {
-    copy_name(name, "Layer ");
+    copy_name(name, "layer ");
     std::array<char, 10> digits = {};
     usize count = 0;
     u32 value = id;
@@ -266,7 +289,7 @@ inline void drawstroke(DrawList *draws, Rect rect, Tone tone, f32 width = 1.0F) 
 }
 
 inline void drawtext(DrawList *draws, std::string_view text, f32 x, f32 y, Tone tone,
-                      f32 scale = 1.0F) {
+                     f32 scale = 1.0F) {
     (void)add_text(draws, text, x, y, tone, scale);
 }
 
@@ -275,13 +298,7 @@ inline void drawicon(DrawList *draws, Icon icon, f32 x, f32 y, Tone tone, f32 sc
 }
 
 inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Tone tone) {
-    std::array<char, kLayerNameBytes> upper = {};
-    const std::string_view name = layername(layer);
-    for (usize index = 0; index < name.size() && index < kLayerNameBytes; ++index) {
-        const char c = name[index];
-        upper[index] = c >= 'a' && c <= 'z' ? static_cast<char>(c - ('a' - 'A')) : c;
-    }
-    drawtext(draws, std::string_view(upper.data(), name.size()), x, y, tone);
+    drawtext(draws, layername(layer), x, y, tone);
 }
 
 [[nodiscard]] inline auto toolicon(ToolKind kind) -> Icon {
@@ -304,9 +321,7 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
     }
 }
 
-[[nodiscard]] inline auto f32abs(f32 value) -> f32 {
-    return value < 0.0F ? -value : value;
-}
+[[nodiscard]] inline auto f32abs(f32 value) -> f32 { return value < 0.0F ? -value : value; }
 
 [[nodiscard]] inline auto painttool(ToolKind kind) -> b8 {
     return kind == ToolKind::kPen || kind == ToolKind::kBrush || kind == ToolKind::kErase;
@@ -314,7 +329,7 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
 
 [[nodiscard]] inline auto paintlayer(const GuiState &state) -> const Layer * {
     const Layer *layer = layercur(state);
-    if (layer == nullptr || layerlocked(*layer) || layer->kind == LayerKind::kPaper) {
+    if (layer == nullptr || layerlocked(*layer) || layer->kind != LayerKind::kInk) {
         return nullptr;
     }
     return layer;
@@ -367,9 +382,7 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
     return state.layout.viewport.y + ((y - state.view.y) * state.view.zoom);
 }
 
-[[nodiscard]] inline auto clamp_zoom(f32 zoom) -> f32 {
-    return std::clamp(zoom, 0.25F, 16.0F);
-}
+[[nodiscard]] inline auto clamp_zoom(f32 zoom) -> f32 { return std::clamp(zoom, 0.25F, 16.0F); }
 
 inline void update_document_rect(GuiState *state) {
     state->layout.document = {
@@ -382,8 +395,7 @@ inline void update_document_rect(GuiState *state) {
 
 inline void center_document(GuiState *state) {
     state->view.zoom = 1.0F;
-    state->view.x =
-        (static_cast<f32>(state->document.width) - state->layout.viewport.width) * 0.5F;
+    state->view.x = (static_cast<f32>(state->document.width) - state->layout.viewport.width) * 0.5F;
     state->view.y =
         (static_cast<f32>(state->document.height) - state->layout.viewport.height) * 0.5F;
     state->view_initialized = true;
@@ -406,11 +418,18 @@ void layermove(GuiState *state, i32 x);
 void layerdone(GuiState *state);
 void layerdraw(const GuiState &state, DrawList *draws);
 
+void historyclear(GuiState *state);
+void historystart(GuiState *state, const Layer &layer);
+void historymark(GuiState *state, PaintStamp stamp);
+void historyfinish(GuiState *state);
+[[nodiscard]] b8 historyundo(GuiState *state);
+[[nodiscard]] b8 historyredo(GuiState *state);
+void historyreplay(GuiState *state);
+
 void worklayout(GuiState *state);
-[[nodiscard]] b8 workwheel(GuiState *state, i32 x, i32 y, i32 dx, i32 dy,
-                                        u8 mods, HitKind hit_kind);
-[[nodiscard]] b8 workmouse(GuiState *state, HitRecord hit, i32 x, i32 y,
-                                             u8 button);
+[[nodiscard]] b8 workwheel(GuiState *state, i32 x, i32 y, i32 dx, i32 dy, u8 mods,
+                           HitKind hit_kind);
+[[nodiscard]] b8 workmouse(GuiState *state, HitRecord hit, i32 x, i32 y, u8 button);
 void workmove(GuiState *state, i32 x, i32 y);
 void workup(GuiState *state, i32 x, i32 y);
 void workdraw(const GuiState &state, DrawList *draws);

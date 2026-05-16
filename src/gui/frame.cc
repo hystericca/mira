@@ -10,9 +10,9 @@ void guilayout(GuiState *state, Screen screen) {
 
     const f32 width = static_cast<f32>(std::max(1, screen.width));
     const f32 height = static_cast<f32>(std::max(1, screen.height));
-    const f32 menu_height = std::min(14.0F, height);
-    const f32 toolbar_width = std::min(48.0F, std::max(44.0F, width * 0.09F));
-    const f32 layers_width = std::min(112.0F, std::max(72.0F, width * 0.25F));
+    const f32 menu_height = std::min(18.0F, height);
+    const f32 toolbar_width = std::min(64.0F, std::max(56.0F, width * 0.10F));
+    const f32 layers_width = std::min(160.0F, std::max(124.0F, width * 0.25F));
     const f32 viewport_x = toolbar_width;
     const f32 viewport_width = std::max(1.0F, width - toolbar_width - layers_width);
     const f32 layers_x = viewport_x + viewport_width;
@@ -22,27 +22,24 @@ void guilayout(GuiState *state, Screen screen) {
         .window = {.x = 0.0F, .y = 0.0F, .width = width, .height = height},
         .menu_bar = {.x = 0.0F, .y = 0.0F, .width = width, .height = menu_height},
         .toolbar = {.x = 0.0F, .y = menu_height, .width = toolbar_width, .height = body_height},
-        .tools = {.x = 4.0F,
-                      .y = menu_height + 4.0F,
-                      .width = 16.0F,
-                      .height = std::max(1.0F, body_height - 8.0F)},
-        .sizes = {.x = 26.0F,
-                      .y = menu_height + 4.0F,
-                      .width = 16.0F,
-                      .height = std::max(1.0F, body_height - 8.0F)},
+        .tools = {.x = 8.0F,
+                  .y = menu_height + 8.0F,
+                  .width = 20.0F,
+                  .height = std::max(1.0F, body_height - 16.0F)},
+        .sizes = {.x = 36.0F,
+                  .y = menu_height + 8.0F,
+                  .width = 20.0F,
+                  .height = std::max(1.0F, body_height - 16.0F)},
         .viewport = {.x = viewport_x,
                      .y = menu_height,
                      .width = viewport_width,
                      .height = body_height},
         .document = {},
-        .layers = {.x = layers_x,
-                    .y = menu_height,
-                    .width = layers_width,
-                    .height = body_height},
-        .layerrows = {.x = layers_x + 5.0F,
-                       .y = menu_height + 22.0F,
-                       .width = std::max(1.0F, layers_width - 10.0F),
-                       .height = std::max(1.0F, body_height - 27.0F)},
+        .layers = {.x = layers_x, .y = menu_height, .width = layers_width, .height = body_height},
+        .layerrows = {.x = layers_x + 7.0F,
+                      .y = menu_height + 30.0F,
+                      .width = std::max(1.0F, layers_width - 14.0F),
+                      .height = std::max(1.0F, body_height - 37.0F)},
     };
 
     state->hits.clear();
@@ -75,12 +72,18 @@ void guievent(GuiState *state, std::span<const InputEvent> input) {
         state->hot_index = hit.index;
 
         if (event.kind == InputKind::kWheel) {
-            (void)impl::workwheel(state, event.x, event.y, event.dx, event.dy,
-                                               event.mods, hit.kind);
+            (void)impl::workwheel(state, event.x, event.y, event.dx, event.dy, event.mods,
+                                  hit.kind);
         } else if (event.kind == InputKind::kKeyDown) {
             const auto key = static_cast<Key>(event.button);
-            if (!impl::layerkey(state, key) && key == Key::kDelete) {
-                (void)layerdel(state);
+            if (!impl::layerkey(state, key)) {
+                if (key == Key::kUndo) {
+                    (void)impl::historyundo(state);
+                } else if (key == Key::kRedo) {
+                    (void)impl::historyredo(state);
+                } else if (key == Key::kDelete) {
+                    (void)layerdel(state);
+                }
             }
         } else if (event.kind == InputKind::kText) {
             (void)impl::layertext(state, static_cast<char>(event.dx));
@@ -92,8 +95,7 @@ void guievent(GuiState *state, std::span<const InputEvent> input) {
             state->active_index = hit.index;
 
             if (impl::workmouse(state, hit, event.x, event.y, event.button) ||
-                impl::menumouse(state, hit) ||
-                impl::layermouse(state, hit, event.x) ||
+                impl::menumouse(state, hit) || impl::layermouse(state, hit, event.x) ||
                 impl::toolmouse(state, hit)) {
                 continue;
             }
@@ -122,12 +124,12 @@ void guidraw(const GuiState &state, DrawList *draws) {
     impl::menudraw(state, draws);
 }
 
-void guiframe(GuiState *state, Screen screen, std::span<const InputEvent> input,
-                     DrawList *draws) {
+void guiframe(GuiState *state, Screen screen, std::span<const InputEvent> input, DrawList *draws) {
     state->paint_stamps.clear();
     state->clear_slots.clear();
     guilayout(state, screen);
     guievent(state, input);
+    impl::historyreplay(state);
     impl::update_document_rect(state);
     guidraw(*state, draws);
 }
