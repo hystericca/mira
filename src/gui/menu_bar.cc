@@ -4,6 +4,14 @@ namespace mira {
 namespace impl = gui;
 
 MenuAction menuaction(const GuiState &state, HitRecord hit) {
+    if (hit.kind == HitKind::kContextAction) {
+        const std::span<const impl::MenuCommand> commands =
+            impl::contextcommands(contextkind(state));
+        if (hit.index >= commands.size()) {
+            return MenuAction::kNone;
+        }
+        return commands[hit.index].action;
+    }
     if (hit.kind != HitKind::kMenuAction) {
         return MenuAction::kNone;
     }
@@ -17,6 +25,41 @@ MenuAction menuaction(const GuiState &state, HitRecord hit) {
 } // namespace mira
 
 namespace mira::gui {
+
+void doaction(GuiState *state, MenuAction action) {
+    switch (action) {
+    case MenuAction::kNone:
+        break;
+    case MenuAction::kMiraAbout:
+        aboutopen(state);
+        break;
+    case MenuAction::kUndo:
+        (void)historyundo(state);
+        break;
+    case MenuAction::kRedo:
+        (void)historyredo(state);
+        break;
+    case MenuAction::kFileNew:
+        dialogopen(state);
+        break;
+    case MenuAction::kFileImport:
+        break;
+    case MenuAction::kFileExport:
+        state->export_requested = true;
+        break;
+    case MenuAction::kLayerNew:
+        if (layeradd(state, {})) {
+            (void)layeredit(state);
+        }
+        break;
+    case MenuAction::kLayerDelete:
+        (void)layerdel(state);
+        break;
+    case MenuAction::kLayerRename:
+        (void)layeredit(state);
+        break;
+    }
+}
 
 void menulayout(GuiState *state) {
     f32 menu_x = 4.0F;
@@ -34,6 +77,7 @@ void menulayout(GuiState *state) {
 b8 menumouse(GuiState *state, HitRecord hit) {
     if (hit.kind == HitKind::kMenu) {
         layerdone(state);
+        state->context_open = false;
         state->active_menu = state->active_menu == hit.index ? kNoMenu : hit.index;
         return true;
     }
@@ -43,26 +87,7 @@ b8 menumouse(GuiState *state, HitRecord hit) {
         return false;
     }
 
-    switch (action) {
-    case MenuAction::kNone:
-        break;
-    case MenuAction::kFileNew:
-        docnew(state);
-        break;
-    case MenuAction::kFileImport:
-        break;
-    case MenuAction::kLayerNew:
-        if (layeradd(state, {})) {
-            (void)layeredit(state);
-        }
-        break;
-    case MenuAction::kLayerDelete:
-        (void)layerdel(state);
-        break;
-    case MenuAction::kLayerRename:
-        (void)layeredit(state);
-        break;
-    }
+    doaction(state, action);
     state->active_menu = kNoMenu;
     return true;
 }
@@ -99,6 +124,7 @@ void menudraw(const GuiState &state, DrawList *draws) {
         return;
     }
 
+    drawplane(draws, DrawPlane::kMenu);
     const Rect menu = {
         .x = menux(state.active_menu),
         .y = 18.0F,

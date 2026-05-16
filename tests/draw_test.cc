@@ -107,6 +107,15 @@ auto main() -> int {
     MIRA_TEST(mira::add_icon(&packing, mira::Icon::kLockClosed, 11.0F, 12.0F, mira::Tone::kWhite));
     MIRA_TEST(packing.icons[2].code ==
               static_cast<mira::f32>(static_cast<mira::u8>(mira::Icon::kLockClosed)));
+    packing.begin_plane(mira::DrawPlane::kMenu);
+    const mira::DrawPlaneStart menu_plane = packing.plane_begin(mira::DrawPlane::kMenu);
+    MIRA_TEST(packing.plane_count() == static_cast<mira::usize>(mira::DrawPlane::kMenu) + 1U);
+    MIRA_TEST(menu_plane.rect == 1);
+    MIRA_TEST(menu_plane.glyph == 3);
+    MIRA_TEST(menu_plane.icon == 3);
+    MIRA_TEST(mira::add_rect(&packing, {.x = 0.0F, .y = 0.0F, .width = 1.0F, .height = 1.0F},
+                             mira::Tone::kBlack));
+    MIRA_TEST(packing.plane_end(mira::DrawPlane::kMenu).rect == menu_plane.rect + 1);
 
     mira::GuiState gui;
     mira::guiinit(&gui);
@@ -122,8 +131,8 @@ auto main() -> int {
     MIRA_TEST(gui.patterns.size() == 8);
     MIRA_TEST(gui.patterns[0].selected == 1);
     MIRA_TEST(mira::patterncur(gui) == &gui.patterns[0]);
-    MIRA_TEST(gui.document.width == 320);
-    MIRA_TEST(gui.document.height == 240);
+    MIRA_TEST(gui.document.width == mira::kDefaultDocumentWidth);
+    MIRA_TEST(gui.document.height == mira::kDefaultDocumentHeight);
     MIRA_TEST(gui.layers.size() == 2);
     MIRA_TEST(mira::layername(gui.layers[0]) == "ink");
     MIRA_TEST(mira::layername(gui.layers[1]) == "background");
@@ -155,12 +164,12 @@ auto main() -> int {
     MIRA_TEST(gui.layout.viewport.x == 84.0F);
     MIRA_TEST(gui.layout.viewport.y == 18.0F);
     MIRA_TEST(gui.layout.viewport.width == 336.0F);
-    MIRA_TEST(gui.layout.document.x == 92.0F);
-    MIRA_TEST(gui.layout.document.y == 69.0F);
-    MIRA_TEST(gui.layout.document.width == 320.0F);
-    MIRA_TEST(gui.layout.document.height == 240.0F);
-    MIRA_TEST(close(gui.view.x, -8.0F));
-    MIRA_TEST(close(gui.view.y, -51.0F));
+    MIRA_TEST(gui.layout.document.x == -88.0F);
+    MIRA_TEST(gui.layout.document.y == 5.0F);
+    MIRA_TEST(gui.layout.document.width == 680.0F);
+    MIRA_TEST(gui.layout.document.height == 368.0F);
+    MIRA_TEST(close(gui.view.x, 172.0F));
+    MIRA_TEST(close(gui.view.y, 13.0F));
 
     mira::GuiState nav_gui;
     mira::guiinit(&nav_gui);
@@ -173,15 +182,15 @@ auto main() -> int {
     wheel_down.y = nav_y;
     wheel_down.dy = 24;
     mira::guievent(&nav_gui, {&wheel_down, 1});
-    MIRA_TEST(close(nav_gui.view.x, -8.0F));
-    MIRA_TEST(close(nav_gui.view.y, -27.0F));
+    MIRA_TEST(close(nav_gui.view.x, 172.0F));
+    MIRA_TEST(close(nav_gui.view.y, 37.0F));
 
     mira::InputEvent wheel_side = wheel_down;
     wheel_side.mods = mira::kInputShift;
     wheel_side.dy = 16;
     mira::guievent(&nav_gui, {&wheel_side, 1});
-    MIRA_TEST(close(nav_gui.view.x, 8.0F));
-    MIRA_TEST(close(nav_gui.view.y, -27.0F));
+    MIRA_TEST(close(nav_gui.view.x, 188.0F));
+    MIRA_TEST(close(nav_gui.view.y, 37.0F));
 
     const mira::f32 document_x_before =
         nav_gui.view.x +
@@ -228,6 +237,138 @@ auto main() -> int {
     const mira::HitRecord menu_hit = mira::guihit(gui, 8, 5);
     MIRA_TEST(menu_hit.kind == mira::HitKind::kMenu);
     MIRA_TEST(menu_hit.index == 0);
+    mira::GuiState about_gui;
+    mira::guiinit(&about_gui);
+    mira::guilayout(&about_gui, normal);
+    mira::InputEvent open_mira_menu = {};
+    open_mira_menu.kind = mira::InputKind::kMouseDown;
+    open_mira_menu.x = 8;
+    open_mira_menu.y = 5;
+    mira::guievent(&about_gui, {&open_mira_menu, 1});
+    MIRA_TEST(about_gui.active_menu == 0);
+    mira::guilayout(&about_gui, normal);
+    const mira::HitRecord about_hit = mira::guihit(about_gui, 8, 20);
+    MIRA_TEST(about_hit.kind == mira::HitKind::kMenuAction);
+    MIRA_TEST(mira::menuaction(about_gui, about_hit) == mira::MenuAction::kMiraAbout);
+    mira::InputEvent click_about = {};
+    click_about.kind = mira::InputKind::kMouseDown;
+    click_about.x = 8;
+    click_about.y = 20;
+    mira::guievent(&about_gui, {&click_about, 1});
+    MIRA_TEST(about_gui.about_dialog);
+    MIRA_TEST(!about_gui.new_dialog);
+    mira::guilayout(&about_gui, normal);
+    MIRA_TEST(about_gui.layout.dialog.width == 248.0F);
+    MIRA_TEST(about_gui.layout.dialog_logo.width == 42.0F);
+    const mira::HitRecord about_ok =
+        mira::guihit(about_gui, static_cast<mira::i32>(about_gui.layout.dialog_ok.x + 1.0F),
+                     static_cast<mira::i32>(about_gui.layout.dialog_ok.y + 1.0F));
+    MIRA_TEST(about_ok.kind == mira::HitKind::kDialogButton);
+    MIRA_TEST(about_ok.priority > 120);
+    mira::InputEvent close_about = {};
+    close_about.kind = mira::InputKind::kKeyDown;
+    close_about.button = static_cast<mira::u8>(mira::Key::kEnter);
+    mira::guievent(&about_gui, {&close_about, 1});
+    MIRA_TEST(!about_gui.about_dialog);
+
+    mira::GuiState about_frame_gui;
+    mira::DrawList about_frame_draws;
+    mira::guiframe(&about_frame_gui, normal, {&open_mira_menu, 1}, &about_frame_draws);
+    mira::guiframe(&about_frame_gui, normal, {&click_about, 1}, &about_frame_draws);
+    MIRA_TEST(about_frame_gui.about_dialog);
+    MIRA_TEST(about_frame_gui.layout.dialog.width == 248.0F);
+    MIRA_TEST(about_frame_gui.layout.dialog.x > 0.0F);
+    MIRA_TEST(about_frame_gui.layout.dialog.y > 0.0F);
+    const mira::DrawPlaneStart modal_begin =
+        about_frame_draws.plane_begin(mira::DrawPlane::kModal);
+    MIRA_TEST(about_frame_draws.plane_count() ==
+              static_cast<mira::usize>(mira::DrawPlane::kModal) + 1U);
+    MIRA_TEST(modal_begin.rect < about_frame_draws.rects.size());
+    MIRA_TEST(modal_begin.glyph < about_frame_draws.glyphs.size());
+
+    mira::GuiState canvas_context_gui;
+    mira::guiinit(&canvas_context_gui);
+    mira::guilayout(&canvas_context_gui, normal);
+    mira::InputEvent canvas_context = {};
+    canvas_context.kind = mira::InputKind::kMouseDown;
+    canvas_context.button = 2;
+    canvas_context.x = static_cast<mira::i32>(canvas_context_gui.layout.viewport.x + 24.0F);
+    canvas_context.y = static_cast<mira::i32>(canvas_context_gui.layout.viewport.y + 24.0F);
+    mira::DrawList canvas_context_draws;
+    mira::guiframe(&canvas_context_gui, normal, {&canvas_context, 1}, &canvas_context_draws);
+    MIRA_TEST(canvas_context_gui.context_open);
+    MIRA_TEST(mira::contextkind(canvas_context_gui) == mira::ContextKind::kCanvas);
+    MIRA_TEST(!canvas_context_gui.painting);
+    MIRA_TEST(canvas_context_gui.paint_stamps.empty());
+    MIRA_TEST(canvas_context_gui.layout.context.x == static_cast<mira::f32>(canvas_context.x));
+    MIRA_TEST(canvas_context_draws.plane_count() >=
+              static_cast<mira::usize>(mira::DrawPlane::kMenu) + 1U);
+    const mira::HitRecord undo_context =
+        mira::guihit(canvas_context_gui,
+                     static_cast<mira::i32>(canvas_context_gui.layout.context.x + 2.0F),
+                     static_cast<mira::i32>(canvas_context_gui.layout.context.y + 2.0F));
+    MIRA_TEST(undo_context.kind == mira::HitKind::kContextAction);
+    MIRA_TEST(mira::menuaction(canvas_context_gui, undo_context) == mira::MenuAction::kUndo);
+    mira::InputEvent reopen_context = {};
+    reopen_context.kind = mira::InputKind::kMouseDown;
+    reopen_context.button = 2;
+    reopen_context.x = static_cast<mira::i32>(canvas_context_gui.layout.layerrows.x + 36.0F);
+    reopen_context.y = static_cast<mira::i32>(canvas_context_gui.layout.layerrows.y + 8.0F);
+    mira::guievent(&canvas_context_gui, {&reopen_context, 1});
+    MIRA_TEST(canvas_context_gui.context_open);
+    MIRA_TEST(mira::contextkind(canvas_context_gui) == mira::ContextKind::kLayer);
+    MIRA_TEST(canvas_context_gui.context_target == 0);
+
+    mira::GuiState sidebar_context_gui;
+    mira::guiinit(&sidebar_context_gui);
+    mira::guilayout(&sidebar_context_gui, normal);
+    mira::InputEvent sidebar_context = {};
+    sidebar_context.kind = mira::InputKind::kMouseDown;
+    sidebar_context.button = 2;
+    sidebar_context.x = static_cast<mira::i32>(sidebar_context_gui.layout.layers.x + 18.0F);
+    sidebar_context.y = static_cast<mira::i32>(sidebar_context_gui.layout.layerrows.y + 120.0F);
+    mira::guievent(&sidebar_context_gui, {&sidebar_context, 1});
+    MIRA_TEST(sidebar_context_gui.context_open);
+    MIRA_TEST(mira::contextkind(sidebar_context_gui) == mira::ContextKind::kLayer);
+    MIRA_TEST(sidebar_context_gui.context_target == mira::kNoLayer);
+    mira::guilayout(&sidebar_context_gui, normal);
+    const mira::HitRecord sidebar_new_context =
+        mira::guihit(sidebar_context_gui,
+                     static_cast<mira::i32>(sidebar_context_gui.layout.context.x + 2.0F),
+                     static_cast<mira::i32>(sidebar_context_gui.layout.context.y + 2.0F));
+    MIRA_TEST(sidebar_new_context.kind == mira::HitKind::kContextAction);
+    MIRA_TEST(mira::menuaction(sidebar_context_gui, sidebar_new_context) ==
+              mira::MenuAction::kLayerNew);
+
+    mira::GuiState layer_context_gui;
+    mira::guiinit(&layer_context_gui);
+    mira::guilayout(&layer_context_gui, normal);
+    mira::InputEvent layer_context = {};
+    layer_context.kind = mira::InputKind::kMouseDown;
+    layer_context.button = 2;
+    layer_context.x = static_cast<mira::i32>(layer_context_gui.layout.layerrows.x + 36.0F);
+    layer_context.y = static_cast<mira::i32>(layer_context_gui.layout.layerrows.y + 8.0F);
+    mira::guievent(&layer_context_gui, {&layer_context, 1});
+    MIRA_TEST(layer_context_gui.context_open);
+    MIRA_TEST(mira::contextkind(layer_context_gui) == mira::ContextKind::kLayer);
+    MIRA_TEST(layer_context_gui.context_target == 0);
+    MIRA_TEST(layer_context_gui.curlayer == 0);
+    mira::guilayout(&layer_context_gui, normal);
+    const mira::HitRecord rename_context =
+        mira::guihit(layer_context_gui,
+                     static_cast<mira::i32>(layer_context_gui.layout.context.x + 2.0F),
+                     static_cast<mira::i32>(layer_context_gui.layout.context.y + 32.0F));
+    MIRA_TEST(rename_context.kind == mira::HitKind::kContextAction);
+    MIRA_TEST(mira::menuaction(layer_context_gui, rename_context) ==
+              mira::MenuAction::kLayerRename);
+    mira::InputEvent click_rename_context = {};
+    click_rename_context.kind = mira::InputKind::kMouseDown;
+    click_rename_context.x = static_cast<mira::i32>(layer_context_gui.layout.context.x + 2.0F);
+    click_rename_context.y = static_cast<mira::i32>(layer_context_gui.layout.context.y + 32.0F);
+    mira::guievent(&layer_context_gui, {&click_rename_context, 1});
+    MIRA_TEST(!layer_context_gui.context_open);
+    MIRA_TEST(layer_context_gui.renaming_layer == 0);
+
     mira::GuiState menu_gui;
     mira::guiinit(&menu_gui);
     mira::guilayout(&menu_gui, normal);
@@ -264,6 +405,9 @@ auto main() -> int {
     const mira::HitRecord import_hit = mira::guihit(file_gui, 55, 34);
     MIRA_TEST(import_hit.kind == mira::HitKind::kMenuAction);
     MIRA_TEST(mira::menuaction(file_gui, import_hit) == mira::MenuAction::kFileImport);
+    const mira::HitRecord export_hit = mira::guihit(file_gui, 55, 49);
+    MIRA_TEST(export_hit.kind == mira::HitKind::kMenuAction);
+    MIRA_TEST(mira::menuaction(file_gui, export_hit) == mira::MenuAction::kFileExport);
     const mira::HitRecord new_file_hit = mira::guihit(file_gui, 55, 20);
     MIRA_TEST(mira::menuaction(file_gui, new_file_hit) == mira::MenuAction::kFileNew);
     mira::InputEvent click_file_new = {};
@@ -271,10 +415,59 @@ auto main() -> int {
     click_file_new.x = 55;
     click_file_new.y = 20;
     mira::guievent(&file_gui, {&click_file_new, 1});
+    MIRA_TEST(file_gui.new_dialog);
+    MIRA_TEST(file_gui.layers.size() == 3);
+    MIRA_TEST(file_gui.new_width == mira::kDefaultDocumentWidth);
+    MIRA_TEST(file_gui.new_height == mira::kDefaultDocumentHeight);
+    mira::guilayout(&file_gui, normal);
+    const mira::HitRecord dialog_hit =
+        mira::guihit(file_gui, static_cast<mira::i32>(file_gui.layout.dialog_width.x + 2.0F),
+                     static_cast<mira::i32>(file_gui.layout.dialog_width.y + 2.0F));
+    MIRA_TEST(dialog_hit.kind == mira::HitKind::kDialogField);
+    MIRA_TEST(dialog_hit.priority > 120);
+    mira::InputEvent width_6 = {};
+    width_6.kind = mira::InputKind::kText;
+    width_6.dx = '6';
+    mira::InputEvent width_4 = width_6;
+    width_4.dx = '4';
+    mira::InputEvent next_field = {};
+    next_field.kind = mira::InputKind::kKeyDown;
+    next_field.button = static_cast<mira::u8>(mira::Key::kTab);
+    mira::InputEvent height_4 = width_6;
+    height_4.dx = '4';
+    mira::InputEvent height_8 = width_6;
+    height_8.dx = '8';
+    mira::InputEvent accept_new = {};
+    accept_new.kind = mira::InputKind::kKeyDown;
+    accept_new.button = static_cast<mira::u8>(mira::Key::kEnter);
+    const mira::InputEvent new_events[] = {width_6, width_4, next_field, height_4, height_8,
+                                           accept_new};
+    mira::guievent(&file_gui, new_events);
+    MIRA_TEST(!file_gui.new_dialog);
+    MIRA_TEST(file_gui.document.width == 64);
+    MIRA_TEST(file_gui.document.height == 48);
     MIRA_TEST(file_gui.layers.size() == 2);
     MIRA_TEST(mira::layername(file_gui.layers[0]) == "ink");
     MIRA_TEST(file_gui.clear_slots.size() == mira::kMaxLayers);
+    MIRA_TEST(file_gui.document_changed);
     MIRA_TEST(file_gui.active_menu == mira::kNoMenu);
+
+    mira::GuiState export_gui;
+    mira::guiinit(&export_gui);
+    mira::guilayout(&export_gui, normal);
+    mira::InputEvent open_export_menu = {};
+    open_export_menu.kind = mira::InputKind::kMouseDown;
+    open_export_menu.x = 55;
+    open_export_menu.y = 5;
+    mira::guievent(&export_gui, {&open_export_menu, 1});
+    mira::guilayout(&export_gui, normal);
+    mira::InputEvent click_export = {};
+    click_export.kind = mira::InputKind::kMouseDown;
+    click_export.x = 55;
+    click_export.y = 49;
+    mira::guievent(&export_gui, {&click_export, 1});
+    MIRA_TEST(export_gui.export_requested);
+    MIRA_TEST(export_gui.active_menu == mira::kNoMenu);
 
     mira::GuiState image_gui;
     mira::guiinit(&image_gui);
@@ -428,8 +621,8 @@ auto main() -> int {
     MIRA_TEST(gui.curlayer == 2);
     mira::InputEvent locked_background_down = {};
     locked_background_down.kind = mira::InputKind::kMouseDown;
-    locked_background_down.x = static_cast<mira::i32>(gui.layout.document.x + 30.0F);
-    locked_background_down.y = static_cast<mira::i32>(gui.layout.document.y + 30.0F);
+    locked_background_down.x = static_cast<mira::i32>(gui.layout.viewport.x + 30.0F);
+    locked_background_down.y = static_cast<mira::i32>(gui.layout.viewport.y + 30.0F);
     mira::guievent(&gui, {&locked_background_down, 1});
     MIRA_TEST(!gui.painting);
     MIRA_TEST(gui.paint_stamps.empty());
@@ -441,13 +634,23 @@ auto main() -> int {
     mira::guievent(&gui, {&select_ink, 1});
     MIRA_TEST(gui.curlayer == 0);
 
+    mira::GuiState outside_gui;
+    mira::guiinit(&outside_gui);
+    mira::guilayout(&outside_gui, normal);
+    outside_gui.view.x = -20.0F;
+    outside_gui.view.y = -20.0F;
+    mira::guilayout(&outside_gui, normal);
     mira::InputEvent outside_document_down = {};
     outside_document_down.kind = mira::InputKind::kMouseDown;
-    outside_document_down.x = static_cast<mira::i32>(gui.layout.viewport.x + 4.0F);
-    outside_document_down.y = static_cast<mira::i32>(gui.layout.viewport.y + 4.0F);
-    mira::guievent(&gui, {&outside_document_down, 1});
-    MIRA_TEST(!gui.painting);
-    MIRA_TEST(gui.paint_stamps.empty());
+    outside_document_down.x = static_cast<mira::i32>(outside_gui.layout.viewport.x + 4.0F);
+    outside_document_down.y = static_cast<mira::i32>(outside_gui.layout.viewport.y + 4.0F);
+    mira::guievent(&outside_gui, {&outside_document_down, 1});
+    MIRA_TEST(!outside_gui.painting);
+    MIRA_TEST(outside_gui.paint_stamps.empty());
+
+    gui.view.x = 0.0F;
+    gui.view.y = 0.0F;
+    mira::guilayout(&gui, normal);
 
     const mira::i32 paint_y = static_cast<mira::i32>(gui.layout.document.y + 30.0F);
     mira::InputEvent paint_down = {};
@@ -500,7 +703,10 @@ auto main() -> int {
     mira::GuiState zoom_paint_gui;
     mira::guiinit(&zoom_paint_gui);
     mira::guilayout(&zoom_paint_gui, normal);
+    zoom_paint_gui.view.x = 0.0F;
+    zoom_paint_gui.view.y = 0.0F;
     zoom_paint_gui.view.zoom = 2.0F;
+    mira::guilayout(&zoom_paint_gui, normal);
     mira::InputEvent zoom_select_size = {};
     zoom_select_size.kind = mira::InputKind::kMouseDown;
     zoom_select_size.x = static_cast<mira::i32>(zoom_paint_gui.layout.sizes.x + 8.0F);

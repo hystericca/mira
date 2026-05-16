@@ -52,11 +52,29 @@ constexpr usize kLayerBufferBytes = kMaxLayers * sizeof(f32) * 4U;
     return static_cast<f32>(layer.flags);
 }
 
+void draw_rows(wgpu::RenderPassEncoder pass, const wgpu::RenderPipeline &pipeline,
+               const wgpu::Buffer &buffer, usize first, usize count, usize stride) {
+    if (count == 0) {
+        return;
+    }
+    pass.SetPipeline(pipeline);
+    pass.SetVertexBuffer(0, buffer, static_cast<u64>(first * stride),
+                         static_cast<u64>(count * stride));
+    pass.Draw(6, static_cast<u32>(count));
+}
+
 [[nodiscard]] auto key_is(const EmscriptenKeyboardEvent &event, std::string_view key) -> b8 {
     return std::string_view(event.key) == key;
 }
 
 void focus_canvas() { emscripten_run_script("document.getElementById('canvas').focus()"); }
+
+void suppress_context_menu() {
+    emscripten_run_script(
+        "document.getElementById('canvas').addEventListener('contextmenu',function(e){"
+        "e.preventDefault();"
+        "});");
+}
 
 } // namespace
 
@@ -163,6 +181,10 @@ void Web::frame() {
                 queue_.Submit(1, &paint_commands);
             }
         }
+        if (pending_export_) {
+            pending_export_ = false;
+            export_png();
+        }
         return;
     }
     wgpu::TextureView view = surface_texture.texture.CreateView();
@@ -211,6 +233,10 @@ void Web::frame() {
     }
     queue_.Submit(1, &commands);
     draw_dirty_ = false;
+    if (pending_export_) {
+        pending_export_ = false;
+        export_png();
+    }
 }
 
 auto Web::read_canvas_size() -> CanvasPixelSize {
@@ -290,6 +316,7 @@ void Web::on_error(const wgpu::Device &, wgpu::ErrorType, wgpu::StringView, Web 
 }
 
 void Web::install_input() {
+    suppress_context_menu();
     emscripten_set_mousemove_callback(kCanvasSelector, this, false, &Web::on_mouse_move);
     emscripten_set_mousedown_callback(kCanvasSelector, this, true, &Web::on_mouse_down);
     emscripten_set_mouseup_callback(kCanvasSelector, this, true, &Web::on_mouse_up);
@@ -414,6 +441,8 @@ void Web::push_key_down_event(const EmscriptenKeyboardEvent &event) {
         key = Key::kBackspace;
     } else if (key_is(event, "Delete")) {
         key = Key::kDelete;
+    } else if (key_is(event, "Tab")) {
+        key = Key::kTab;
     }
     if (key == Key::kNone) {
         const char c = event.key[0];
@@ -608,22 +637,7 @@ auto Web::make_pipeline() -> b8 {
         return false;
     }
 
-    std::array<wgpu::BindGroupEntry, 3> layer_bind_group_entries = {};
-    layer_bind_group_entries[0].binding = 0;
-    layer_bind_group_entries[0].buffer = layer_buffer_;
-    layer_bind_group_entries[0].offset = 0;
-    layer_bind_group_entries[0].size = kLayerBufferBytes;
-    layer_bind_group_entries[1].binding = 1;
-    layer_bind_group_entries[1].textureView = layer_texture_view_;
-    layer_bind_group_entries[2].binding = 2;
-    layer_bind_group_entries[2].sampler = layer_sampler_;
-
-    wgpu::BindGroupDescriptor layer_bind_group_descriptor = {};
-    layer_bind_group_descriptor.layout = layer_bind_group_layout_;
-    layer_bind_group_descriptor.entryCount = layer_bind_group_entries.size();
-    layer_bind_group_descriptor.entries = layer_bind_group_entries.data();
-    layer_bind_group_ = device_.CreateBindGroup(&layer_bind_group_descriptor);
-    if (layer_bind_group_ == nullptr) {
+    if (!make_layer_bind_group()) {
         return false;
     }
 
@@ -729,8 +743,9 @@ auto Web::make_layer_texture() -> b8 {
     texture_descriptor.size = {document_width, document_height, static_cast<u32>(kMaxLayers)};
     texture_descriptor.dimension = wgpu::TextureDimension::e2D;
     texture_descriptor.format = wgpu::TextureFormat::R8Unorm;
-    texture_descriptor.usage = wgpu::TextureUsage::RenderAttachment |
-                               wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
+    texture_descriptor.usage =
+        wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding |
+        wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::CopySrc;
     layer_texture_ = device_.CreateTexture(&texture_descriptor);
     if (layer_texture_ == nullptr) {
         return false;
@@ -797,6 +812,30 @@ auto Web::make_layer_texture() -> b8 {
     return true;
 }
 
+auto Web::make_layer_bind_group() -> b8 {
+    if (layer_bind_group_layout_ == nullptr || layer_buffer_ == nullptr ||
+        layer_texture_view_ == nullptr || layer_sampler_ == nullptr) {
+        return false;
+    }
+
+    std::array<wgpu::BindGroupEntry, 3> layer_bind_group_entries = {};
+    layer_bind_group_entries[0].binding = 0;
+    layer_bind_group_entries[0].buffer = layer_buffer_;
+    layer_bind_group_entries[0].offset = 0;
+    layer_bind_group_entries[0].size = kLayerBufferBytes;
+    layer_bind_group_entries[1].binding = 1;
+    layer_bind_group_entries[1].textureView = layer_texture_view_;
+    layer_bind_group_entries[2].binding = 2;
+    layer_bind_group_entries[2].sampler = layer_sampler_;
+
+    wgpu::BindGroupDescriptor layer_bind_group_descriptor = {};
+    layer_bind_group_descriptor.layout = layer_bind_group_layout_;
+    layer_bind_group_descriptor.entryCount = layer_bind_group_entries.size();
+    layer_bind_group_descriptor.entries = layer_bind_group_entries.data();
+    layer_bind_group_ = device_.CreateBindGroup(&layer_bind_group_descriptor);
+    return layer_bind_group_ != nullptr;
+}
+
 auto Web::upload_draws() -> b8 {
     if (!draw_dirty_) {
         return true;
@@ -804,6 +843,17 @@ auto Web::upload_draws() -> b8 {
 
     guiframe(&gui_, screen_, input_events_.span(), &draws_);
     input_events_.clear();
+    if (gui_.document_changed) {
+        if (!make_layer_texture() || !make_layer_bind_group()) {
+            return false;
+        }
+        gui_.document_changed = false;
+        gui_.clear_slots.clear();
+    }
+    if (gui_.export_requested) {
+        pending_export_ = true;
+        gui_.export_requested = false;
+    }
 
     const Frame uniforms = {
         .width = static_cast<f32>(width_),
@@ -916,20 +966,16 @@ void Web::encode_gui(wgpu::RenderPassEncoder pass) {
     pass.Draw(6, 1);
 
     pass.SetBindGroup(0, bind_group_);
-    if (!draws_.rects.empty()) {
-        pass.SetPipeline(rect_pipeline_);
-        pass.SetVertexBuffer(0, rect_buffer_, 0, draws_.rects.byte_size());
-        pass.Draw(6, static_cast<u32>(draws_.rects.size()));
-    }
-    if (!draws_.glyphs.empty()) {
-        pass.SetPipeline(glyph_pipeline_);
-        pass.SetVertexBuffer(0, glyph_buffer_, 0, draws_.glyphs.byte_size());
-        pass.Draw(6, static_cast<u32>(draws_.glyphs.size()));
-    }
-    if (!draws_.icons.empty()) {
-        pass.SetPipeline(icon_pipeline_);
-        pass.SetVertexBuffer(0, icon_buffer_, 0, draws_.icons.byte_size());
-        pass.Draw(6, static_cast<u32>(draws_.icons.size()));
+    for (usize plane = 0; plane < draws_.plane_count(); ++plane) {
+        const DrawPlane draw_plane = static_cast<DrawPlane>(plane);
+        const DrawPlaneStart begin = draws_.plane_begin(draw_plane);
+        const DrawPlaneStart end = draws_.plane_end(draw_plane);
+        draw_rows(pass, rect_pipeline_, rect_buffer_, begin.rect, end.rect - begin.rect,
+                  sizeof(RectDraw));
+        draw_rows(pass, glyph_pipeline_, glyph_buffer_, begin.glyph, end.glyph - begin.glyph,
+                  sizeof(GlyphDraw));
+        draw_rows(pass, icon_pipeline_, icon_buffer_, begin.icon, end.icon - begin.icon,
+                  sizeof(IconDraw));
     }
 }
 

@@ -51,6 +51,8 @@ void guilayout(GuiState *state, Screen screen) {
     impl::toollayout(state);
     impl::layerlayout(state);
     impl::menulayout(state);
+    impl::contextlayout(state);
+    impl::dialoglayout(state);
 }
 
 HitRecord guihit(const GuiState &state, i32 x, i32 y) {
@@ -75,7 +77,35 @@ void guievent(GuiState *state, std::span<const InputEvent> input) {
         state->hot_kind = hit.kind;
         state->hot_index = hit.index;
 
-        if (event.kind == InputKind::kWheel) {
+        if (state->about_dialog || state->new_dialog) {
+            if (event.kind == InputKind::kKeyDown) {
+                (void)impl::dialogkey(state, static_cast<Key>(event.button));
+            } else if (event.kind == InputKind::kText) {
+                (void)impl::dialogtext(state, static_cast<char>(event.dx));
+            } else if (event.kind == InputKind::kMouseDown) {
+                state->active_kind = hit.kind;
+                state->active_index = hit.index;
+                (void)impl::dialogmouse(state, hit);
+            } else if (event.kind == InputKind::kMouseUp) {
+                state->active_kind = HitKind::kNone;
+                state->active_index = 0;
+            }
+        } else if (state->context_open) {
+            if (event.kind == InputKind::kKeyDown) {
+                (void)impl::contextkey(state, static_cast<Key>(event.button));
+            } else if (event.kind == InputKind::kMouseDown) {
+                state->active_kind = hit.kind;
+                state->active_index = hit.index;
+                if (event.button == 2) {
+                    impl::contextopen(state, hit, event.x, event.y);
+                } else {
+                    (void)impl::contextmouse(state, hit);
+                }
+            } else if (event.kind == InputKind::kMouseUp) {
+                state->active_kind = HitKind::kNone;
+                state->active_index = 0;
+            }
+        } else if (event.kind == InputKind::kWheel) {
             (void)impl::workwheel(state, event.x, event.y, event.dx, event.dy, event.mods,
                                   hit.kind);
         } else if (event.kind == InputKind::kKeyDown) {
@@ -97,6 +127,11 @@ void guievent(GuiState *state, std::span<const InputEvent> input) {
             state->setting_opacity = false;
             state->active_kind = hit.kind;
             state->active_index = hit.index;
+
+            if (event.button == 2) {
+                impl::contextopen(state, hit, event.x, event.y);
+                continue;
+            }
 
             if (impl::workmouse(state, hit, event.x, event.y, event.button) ||
                 impl::menumouse(state, hit) || impl::layermouse(state, hit, event.x) ||
@@ -126,6 +161,8 @@ void guidraw(const GuiState &state, DrawList *draws) {
     impl::tooldraw(state, draws);
     impl::layerdraw(state, draws);
     impl::menudraw(state, draws);
+    impl::contextdraw(state, draws);
+    impl::dialogdraw(state, draws);
 }
 
 void guiframe(GuiState *state, Screen screen, std::span<const InputEvent> input, DrawList *draws) {
@@ -133,6 +170,9 @@ void guiframe(GuiState *state, Screen screen, std::span<const InputEvent> input,
     state->clear_slots.clear();
     guilayout(state, screen);
     guievent(state, input);
+    if (!input.empty()) {
+        guilayout(state, screen);
+    }
     impl::historyreplay(state);
     impl::update_document_rect(state);
     guidraw(*state, draws);

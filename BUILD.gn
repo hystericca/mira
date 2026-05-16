@@ -28,6 +28,8 @@ source_set("mira_core") {
     "include/mira/types.hpp",
     "src/draw/draw.cc",
     "src/draw/font.cc",
+    "src/gui/context.cc",
+    "src/gui/dialog.cc",
     "src/gui/frame.cc",
     "src/gui/layers.cc",
     "src/gui/menu_bar.cc",

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <span>
 #include <string_view>
 
@@ -109,14 +110,38 @@ static_assert(sizeof(RectDraw) == 32);
 static_assert(sizeof(GlyphDraw) == 32);
 static_assert(sizeof(IconDraw) == 32);
 
+enum class DrawPlane : u8 {
+    kBase,
+    kPanel,
+    kControl,
+    kMenu,
+    kModal,
+    kCursor,
+    kCount,
+};
+
+constexpr usize kDrawPlaneCount = static_cast<usize>(DrawPlane::kCount);
+
+struct DrawPlaneStart {
+    usize rect = 0;
+    usize glyph = 0;
+    usize icon = 0;
+};
+
 struct DrawList {
     Table<RectDraw, kMaxRects> rects;
     Table<GlyphDraw, kMaxGlyphs> glyphs;
     Table<IconDraw, kMaxIcons> icons;
+    std::array<DrawPlaneStart, kDrawPlaneCount> planes = {};
+    DrawPlane plane = DrawPlane::kBase;
 
     void clear();
+    void begin_plane(DrawPlane next);
     [[nodiscard]] usize upload_bytes() const;
     [[nodiscard]] u32 overflow_count() const;
+    [[nodiscard]] usize plane_count() const;
+    [[nodiscard]] DrawPlaneStart plane_begin(DrawPlane draw_plane) const;
+    [[nodiscard]] DrawPlaneStart plane_end(DrawPlane draw_plane) const;
 };
 
 struct DrawView {

@@ -27,12 +27,36 @@ inline constexpr std::array<MenuItem, 5> kMenuItems = {{
     {"view", 4},
 }};
 
+inline constexpr u8 kMiraMenu = 0;
 inline constexpr u8 kFileMenu = 1;
 inline constexpr u8 kLayerMenu = 3;
 
-inline constexpr std::array<MenuCommand, 2> kFileMenuCommands = {{
+inline constexpr std::array<MenuCommand, 1> kMiraMenuCommands = {{
+    {"about", MenuAction::kMiraAbout},
+}};
+
+inline constexpr std::array<MenuCommand, 3> kAppContextCommands = {{
     {"new", MenuAction::kFileNew},
     {"import", MenuAction::kFileImport},
+    {"export", MenuAction::kFileExport},
+}};
+
+inline constexpr std::array<MenuCommand, 3> kCanvasContextCommands = {{
+    {"undo", MenuAction::kUndo},
+    {"redo", MenuAction::kRedo},
+    {"export", MenuAction::kFileExport},
+}};
+
+inline constexpr std::array<MenuCommand, 3> kLayerContextCommands = {{
+    {"new", MenuAction::kLayerNew},
+    {"del", MenuAction::kLayerDelete},
+    {"name", MenuAction::kLayerRename},
+}};
+
+inline constexpr std::array<MenuCommand, 3> kFileMenuCommands = {{
+    {"new", MenuAction::kFileNew},
+    {"import", MenuAction::kFileImport},
+    {"export", MenuAction::kFileExport},
 }};
 
 inline constexpr std::array<MenuCommand, 3> kLayerMenuCommands = {{
@@ -42,11 +66,27 @@ inline constexpr std::array<MenuCommand, 3> kLayerMenuCommands = {{
 }};
 
 [[nodiscard]] inline auto menucommands(u8 menu) -> std::span<const MenuCommand> {
+    if (menu == kMiraMenu) {
+        return std::span<const MenuCommand>(kMiraMenuCommands);
+    }
     if (menu == kFileMenu) {
         return std::span<const MenuCommand>(kFileMenuCommands);
     }
     if (menu == kLayerMenu) {
         return std::span<const MenuCommand>(kLayerMenuCommands);
+    }
+    return {};
+}
+
+[[nodiscard]] inline auto contextcommands(ContextKind kind) -> std::span<const MenuCommand> {
+    if (kind == ContextKind::kCanvas) {
+        return std::span<const MenuCommand>(kCanvasContextCommands);
+    }
+    if (kind == ContextKind::kLayer) {
+        return std::span<const MenuCommand>(kLayerContextCommands);
+    }
+    if (kind == ContextKind::kApp) {
+        return std::span<const MenuCommand>(kAppContextCommands);
     }
     return {};
 }
@@ -301,6 +341,8 @@ inline void addhit(GuiState *state, Rect rect, HitKind kind, u8 index, u16 prior
 
 inline void drawrect(DrawList *draws, Rect rect, Tone tone) { (void)add_rect(draws, rect, tone); }
 
+inline void drawplane(DrawList *draws, DrawPlane plane) { draws->begin_plane(plane); }
+
 inline void drawstroke(DrawList *draws, Rect rect, Tone tone, f32 width = 1.0F) {
     (void)add_stroke(draws, rect, tone, width);
 }
@@ -421,7 +463,22 @@ inline void center_document(GuiState *state) {
 
 void menulayout(GuiState *state);
 [[nodiscard]] b8 menumouse(GuiState *state, HitRecord hit);
+void doaction(GuiState *state, MenuAction action);
 void menudraw(const GuiState &state, DrawList *draws);
+
+void contextopen(GuiState *state, HitRecord hit, i32 x, i32 y);
+void contextlayout(GuiState *state);
+[[nodiscard]] b8 contextmouse(GuiState *state, HitRecord hit);
+[[nodiscard]] b8 contextkey(GuiState *state, Key key);
+void contextdraw(const GuiState &state, DrawList *draws);
+
+void aboutopen(GuiState *state);
+void dialogopen(GuiState *state);
+void dialoglayout(GuiState *state);
+[[nodiscard]] b8 dialogmouse(GuiState *state, HitRecord hit);
+[[nodiscard]] b8 dialogkey(GuiState *state, Key key);
+[[nodiscard]] b8 dialogtext(GuiState *state, char c);
+void dialogdraw(const GuiState &state, DrawList *draws);
 
 void toollayout(GuiState *state);
 [[nodiscard]] b8 toolmouse(GuiState *state, HitRecord hit);

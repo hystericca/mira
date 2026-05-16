@@ -32,12 +32,41 @@ namespace {
     });
 }
 
+[[nodiscard]] usize plane_index(DrawPlane plane) {
+    const usize index = static_cast<usize>(plane);
+    return std::min(index, kDrawPlaneCount - 1U);
+}
+
+[[nodiscard]] DrawPlaneStart draw_tail(const DrawList &list) {
+    return {
+        .rect = list.rects.size(),
+        .glyph = list.glyphs.size(),
+        .icon = list.icons.size(),
+    };
+}
+
 } // namespace
 
 void DrawList::clear() {
     rects.clear();
     glyphs.clear();
     icons.clear();
+    planes.fill({});
+    plane = DrawPlane::kBase;
+}
+
+void DrawList::begin_plane(DrawPlane next) {
+    const usize current = plane_index(plane);
+    const usize target = plane_index(next);
+    if (target <= current) {
+        return;
+    }
+
+    const DrawPlaneStart tail = draw_tail(*this);
+    for (usize index = current + 1U; index <= target; ++index) {
+        planes[index] = tail;
+    }
+    plane = static_cast<DrawPlane>(target);
 }
 
 usize DrawList::upload_bytes() const {
@@ -50,6 +79,20 @@ u32 DrawList::overflow_count() const {
     count += glyphs.overflowed ? 1U : 0U;
     count += icons.overflowed ? 1U : 0U;
     return count;
+}
+
+usize DrawList::plane_count() const { return plane_index(plane) + 1U; }
+
+DrawPlaneStart DrawList::plane_begin(DrawPlane draw_plane) const {
+    return planes[plane_index(draw_plane)];
+}
+
+DrawPlaneStart DrawList::plane_end(DrawPlane draw_plane) const {
+    const usize index = plane_index(draw_plane);
+    if (index < plane_index(plane)) {
+        return planes[index + 1U];
+    }
+    return draw_tail(*this);
 }
 
 Screen screen_for(i32 width, i32 height) {

@@ -24,6 +24,8 @@ constexpr usize kToolNameBytes = 8;
 constexpr u8 kNoLayer = 0xFFU;
 constexpr u8 kNoMenu = 0xFFU;
 constexpr u8 kBackgroundTextureSlot = static_cast<u8>(kMaxLayers - 1U);
+constexpr i32 kDefaultDocumentWidth = 680;
+constexpr i32 kDefaultDocumentHeight = 368;
 
 constexpr u8 kLayerVisible = 1U << 0U;
 constexpr u8 kLayerLocked = 1U << 1U;
@@ -117,6 +119,7 @@ enum class Key : u8 {
     kEscape,
     kBackspace,
     kDelete,
+    kTab,
     kUndo,
     kRedo,
 };
@@ -147,15 +150,31 @@ enum class HitKind : u8 {
     kLayerLock,
     kLayerOpacity,
     kMenuAction,
+    kContextMenu,
+    kContextAction,
+    kDialog,
+    kDialogField,
+    kDialogButton,
 };
 
 enum class MenuAction : u8 {
     kNone,
+    kMiraAbout,
+    kUndo,
+    kRedo,
     kFileNew,
     kFileImport,
+    kFileExport,
     kLayerNew,
     kLayerDelete,
     kLayerRename,
+};
+
+enum class ContextKind : u8 {
+    kNone,
+    kApp,
+    kCanvas,
+    kLayer,
 };
 
 struct HitRecord {
@@ -169,8 +188,8 @@ static_assert(sizeof(HitRecord) == 24);
 
 struct Document {
     // The drawable page size, measured in document pixels.
-    i32 width = 320;
-    i32 height = 240;
+    i32 width = kDefaultDocumentWidth;
+    i32 height = kDefaultDocumentHeight;
 };
 static_assert(sizeof(Document) == 8);
 
@@ -194,6 +213,13 @@ struct GuiLayout {
     Rect document;
     Rect layers;
     Rect layerrows;
+    Rect context;
+    Rect dialog;
+    Rect dialog_logo;
+    Rect dialog_width;
+    Rect dialog_height;
+    Rect dialog_ok;
+    Rect dialog_cancel;
 };
 
 struct GuiState {
@@ -211,6 +237,8 @@ struct GuiState {
     GuiLayout layout;
     i32 mouse_x = -1;
     i32 mouse_y = -1;
+    i32 new_width = kDefaultDocumentWidth;
+    i32 new_height = kDefaultDocumentHeight;
     HitKind hot_kind = HitKind::kNone;
     u8 hot_index = 0;
     HitKind active_kind = HitKind::kNone;
@@ -219,8 +247,12 @@ struct GuiState {
     u8 curtool = 0;
     u8 cursize = 3;
     u8 curpattern = 0;
+    u8 new_field = 0;
     u8 active_menu = kNoMenu;
+    u8 context_target = kNoLayer;
     u8 renaming_layer = kNoLayer;
+    i32 context_x = 0;
+    i32 context_y = 0;
     u32 next_layer_id = 1;
     u32 stroke_cursor = 0;
     u32 active_stroke_first = 0;
@@ -237,6 +269,12 @@ struct GuiState {
     b8 panning = false;
     b8 setting_opacity = false;
     b8 rename_replace = false;
+    b8 context_open = false;
+    b8 about_dialog = false;
+    b8 new_dialog = false;
+    b8 new_replace = false;
+    b8 document_changed = false;
+    b8 export_requested = false;
     b8 recording_stroke = false;
     b8 replay_strokes = false;
 };
@@ -252,7 +290,8 @@ struct GuiState {
 [[nodiscard]] Icon brushicon(u8 index);
 [[nodiscard]] Icon patternicon(u8 index);
 void guiinit(GuiState *state);
-void docnew(GuiState *state, i32 width = 320, i32 height = 240);
+void docnew(GuiState *state, i32 width = kDefaultDocumentWidth,
+            i32 height = kDefaultDocumentHeight);
 void guilayout(GuiState *state, Screen screen);
 void guievent(GuiState *state, std::span<const InputEvent> input);
 void guidraw(const GuiState &state, DrawList *draws);
@@ -264,6 +303,7 @@ void guiframe(GuiState *state, Screen screen, std::span<const InputEvent> input,
 [[nodiscard]] b8 layeredit(GuiState *state);
 [[nodiscard]] HitRecord guihit(const GuiState &state, i32 x, i32 y);
 [[nodiscard]] MenuAction menuaction(const GuiState &state, HitRecord hit);
+[[nodiscard]] ContextKind contextkind(const GuiState &state);
 [[nodiscard]] const Layer *layercur(const GuiState &state);
 [[nodiscard]] const Tool *toolcur(const GuiState &state);
 

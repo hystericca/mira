@@ -3,7 +3,10 @@
 #include <emscripten/emscripten.h>
 
 #include <algorithm>
+#include <array>
+#include <limits>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -80,6 +83,36 @@ EM_JS(void, mira_open_image_picker, (int doc_width, int doc_height), {
     input.value = "";
     input.click();
 });
+
+EM_JS(void, mira_download_png, (int width, int height, const unsigned char *rgba, int byte_count), {
+    const w = Math.max(1, width | 0);
+    const h = Math.max(1, height | 0);
+    const expected = w * h * 4;
+    if (!rgba || byte_count < expected) {
+        return;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    const copy = new Uint8ClampedArray(HEAPU8.subarray(rgba, rgba + expected));
+    ctx.putImageData(new ImageData(copy, w, h), 0, 0);
+    canvas.toBlob(function(blob) {
+        if (!blob) {
+            return;
+        }
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "mira.png";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(function() {
+            URL.revokeObjectURL(url);
+        }, 0);
+    }, "image/png");
+});
 // clang-format on
 
 extern "C" EMSCRIPTEN_KEEPALIVE void mira_import_image_ready(int width, int height,
@@ -96,10 +129,139 @@ extern "C" EMSCRIPTEN_KEEPALIVE void mira_import_image_ready(int width, int heig
 }
 
 namespace mira {
+namespace {
+
+[[nodiscard]] auto align_to(u32 value, u32 alignment) -> u32 {
+    return ((value + alignment - 1U) / alignment) * alignment;
+}
+
+[[nodiscard]] auto bayer4(u32 x, u32 y) -> f32 {
+    constexpr std::array<f32, 16> cells = {
+        0.0F, 8.0F,  2.0F,  10.0F,
+        12.0F, 4.0F, 14.0F, 6.0F,
+        3.0F, 11.0F, 1.0F,  9.0F,
+        15.0F, 7.0F, 13.0F, 5.0F,
+    };
+    return (cells[((y & 3U) * 4U) + (x & 3U)] + 0.5F) / 16.0F;
+}
+
+[[nodiscard]] auto sample_layer(const u8 *layers, usize layer_index, usize layer_bytes,
+                                u32 bytes_per_row, u32 x, u32 y) -> f32 {
+    const usize offset = (layer_index * layer_bytes) + (static_cast<usize>(y) * bytes_per_row) + x;
+    return static_cast<f32>(layers[offset]) / 255.0F;
+}
+
+[[nodiscard]] auto mix(f32 a, f32 b, f32 t) -> f32 { return a + ((b - a) * t); }
+
+} // namespace
 
 void Web::install_file_import() { g_web_app = this; }
 
 void Web::open_image_picker() { mira_open_image_picker(gui_.document.width, gui_.document.height); }
+
+void Web::export_png() {
+    const u32 document_width = static_cast<u32>(std::max(1, gui_.document.width));
+    const u32 document_height = static_cast<u32>(std::max(1, gui_.document.height));
+    const usize layer_count = gui_.layers.size();
+    if (layer_count == 0 || device_ == nullptr || queue_ == nullptr || instance_ == nullptr ||
+        layer_texture_ == nullptr) {
+        return;
+    }
+
+    const u32 bytes_per_row = align_to(document_width, 256U);
+    const usize layer_bytes = static_cast<usize>(bytes_per_row) * document_height;
+    const usize read_size = layer_bytes * layer_count;
+
+    wgpu::BufferDescriptor buffer_descriptor = {};
+    buffer_descriptor.size = read_size;
+    buffer_descriptor.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
+    wgpu::Buffer readback = device_.CreateBuffer(&buffer_descriptor);
+    if (readback == nullptr) {
+        return;
+    }
+
+    wgpu::CommandEncoder encoder = device_.CreateCommandEncoder();
+    if (encoder == nullptr) {
+        return;
+    }
+    for (usize index = 0; index < layer_count; ++index) {
+        const Layer &layer = gui_.layers[index];
+        wgpu::TexelCopyTextureInfo source = {};
+        source.texture = layer_texture_;
+        source.mipLevel = 0;
+        source.origin = {0, 0, static_cast<u32>(layer.texture_slot)};
+        source.aspect = wgpu::TextureAspect::All;
+
+        wgpu::TexelCopyBufferLayout layout = {};
+        layout.offset = layer_bytes * index;
+        layout.bytesPerRow = bytes_per_row;
+        layout.rowsPerImage = document_height;
+
+        wgpu::TexelCopyBufferInfo destination = {};
+        destination.buffer = readback;
+        destination.layout = layout;
+
+        wgpu::Extent3D extent = {document_width, document_height, 1};
+        encoder.CopyTextureToBuffer(&source, &destination, &extent);
+    }
+
+    wgpu::CommandBuffer commands = encoder.Finish();
+    if (commands == nullptr) {
+        return;
+    }
+    queue_.Submit(1, &commands);
+
+    instance_.WaitAny(
+        readback.MapAsync(
+            wgpu::MapMode::Read, 0, read_size, wgpu::CallbackMode::WaitAnyOnly,
+            [&](wgpu::MapAsyncStatus status, wgpu::StringView) {
+                if (status != wgpu::MapAsyncStatus::Success) {
+                    return;
+                }
+                const auto *mapped = static_cast<const u8 *>(readback.GetConstMappedRange());
+                if (mapped == nullptr) {
+                    readback.Unmap();
+                    return;
+                }
+
+                std::vector<u8> rgba(static_cast<usize>(document_width) * document_height * 4U);
+                for (u32 y = 0; y < document_height; ++y) {
+                    for (u32 x = 0; x < document_width; ++x) {
+                        f32 luma = 0.0F;
+                        for (usize step = 0; step < layer_count; ++step) {
+                            const usize layer_index = layer_count - 1U - step;
+                            const Layer &layer = gui_.layers[layer_index];
+                            if (!layervisible(layer)) {
+                                continue;
+                            }
+                            const f32 opacity = static_cast<f32>(layer.opacity_u8) / 255.0F;
+                            if (layer.kind == LayerKind::kBackground) {
+                                luma = mix(luma, 1.0F, opacity);
+                            } else if (layer.kind == LayerKind::kImage) {
+                                const f32 image =
+                                    sample_layer(mapped, layer_index, layer_bytes, bytes_per_row, x, y);
+                                luma = mix(luma, image, opacity);
+                            } else {
+                                const f32 ink =
+                                    sample_layer(mapped, layer_index, layer_bytes, bytes_per_row, x, y);
+                                luma = mix(luma, 0.0F, ink * opacity);
+                            }
+                        }
+                        const u8 value =
+                            std::clamp(luma, 0.0F, 1.0F) >= bayer4(x, y) ? 255U : 0U;
+                        const usize out = ((static_cast<usize>(y) * document_width) + x) * 4U;
+                        rgba[out + 0U] = value;
+                        rgba[out + 1U] = value;
+                        rgba[out + 2U] = value;
+                        rgba[out + 3U] = 255U;
+                    }
+                }
+                mira_download_png(static_cast<int>(document_width), static_cast<int>(document_height),
+                                  rgba.data(), static_cast<int>(rgba.size()));
+                readback.Unmap();
+            }),
+        std::numeric_limits<u64>::max());
+}
 
 auto Web::upload_layer(u8 slot, const u8 *pixels, usize byte_count) -> b8 {
     const u32 document_width = static_cast<u32>(std::max(1, gui_.document.width));

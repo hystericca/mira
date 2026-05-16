@@ -81,11 +81,13 @@ class Web {
     void push_key_down_event(const EmscriptenKeyboardEvent &event);
     void install_file_import();
     void open_image_picker();
+    void export_png();
     [[nodiscard]] auto upload_layer(u8 slot, const u8 *pixels, usize byte_count) -> b8;
     [[nodiscard]] auto choose_surface() -> b8;
     [[nodiscard]] auto resize() -> b8;
     [[nodiscard]] auto make_pipeline() -> b8;
     [[nodiscard]] auto make_layer_texture() -> b8;
+    [[nodiscard]] auto make_layer_bind_group() -> b8;
     [[nodiscard]] auto can_render(wgpu::SurfaceTexture surface_texture) -> b8;
     [[nodiscard]] auto upload_draws() -> b8;
     void encode_layer_clears(wgpu::CommandEncoder encoder);
@@ -132,6 +134,7 @@ class Web {
     b8 needs_configure_ = true;
     b8 needs_canvas_read_ = true;
     b8 draw_dirty_ = true;
+    b8 pending_export_ = false;
     b8 device_lost_ = false;
 };
 

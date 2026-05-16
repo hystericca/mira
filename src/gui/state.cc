@@ -15,6 +15,8 @@ void guiinit(GuiState *state) {
     state->hits.clear();
     state->mouse_x = -1;
     state->mouse_y = -1;
+    state->new_width = kDefaultDocumentWidth;
+    state->new_height = kDefaultDocumentHeight;
     state->hot_kind = HitKind::kNone;
     state->active_kind = HitKind::kNone;
     state->hot_index = 0;
@@ -23,15 +25,19 @@ void guiinit(GuiState *state) {
     state->curtool = 0;
     state->cursize = 3;
     state->curpattern = 0;
+    state->new_field = 0;
     state->active_menu = kNoMenu;
+    state->context_target = kNoLayer;
     state->renaming_layer = kNoLayer;
+    state->context_x = 0;
+    state->context_y = 0;
     state->next_layer_id = 1;
     state->stroke_cursor = 0;
     state->active_stroke_first = 0;
     state->active_stroke_count = 0;
     state->active_stroke_layer = 0;
     state->active_stroke_rect = {};
-    state->document = {.width = 320, .height = 240};
+    state->document = {.width = kDefaultDocumentWidth, .height = kDefaultDocumentHeight};
     state->last_paint_x = 0.0F;
     state->last_paint_y = 0.0F;
     state->last_pan_x = 0;
@@ -44,6 +50,12 @@ void guiinit(GuiState *state) {
     state->panning = false;
     state->setting_opacity = false;
     state->rename_replace = false;
+    state->context_open = false;
+    state->about_dialog = false;
+    state->new_dialog = false;
+    state->new_replace = false;
+    state->document_changed = false;
+    state->export_requested = false;
     state->recording_stroke = false;
     state->replay_strokes = false;
 
@@ -84,6 +96,7 @@ void docnew(GuiState *state, i32 width, i32 height) {
     for (u8 slot = 0; slot < kMaxLayers; ++slot) {
         impl::markclear(state, slot);
     }
+    state->document_changed = true;
 }
 
 } // namespace mira

@@ -224,17 +224,19 @@ b8 workmouse(GuiState *state, HitRecord hit, i32 x, i32 y, u8 button) {
     if (button == 1 && hit.kind == HitKind::kViewport) {
         layerdone(state);
         state->active_menu = kNoMenu;
+        state->context_open = false;
         state->panning = true;
         state->last_pan_x = static_cast<i16>(x);
         state->last_pan_y = static_cast<i16>(y);
         return true;
     }
-    if (hit.kind != HitKind::kViewport) {
+    if (hit.kind != HitKind::kViewport || button != 0) {
         return false;
     }
 
     layerdone(state);
     state->active_menu = kNoMenu;
+    state->context_open = false;
     const ToolKind kind = toolkind(*state);
     const Layer *layer = paintlayer(*state);
     if (painttool(kind) && layer != nullptr) {
