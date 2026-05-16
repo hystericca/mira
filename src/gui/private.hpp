@@ -29,6 +29,7 @@ inline constexpr std::array<MenuItem, 5> kMenuItems = {{
 
 inline constexpr u8 kMiraMenu = 0;
 inline constexpr u8 kFileMenu = 1;
+inline constexpr u8 kEditMenu = 2;
 inline constexpr u8 kLayerMenu = 3;
 
 inline constexpr std::array<MenuCommand, 1> kMiraMenuCommands = {{
@@ -59,6 +60,11 @@ inline constexpr std::array<MenuCommand, 3> kFileMenuCommands = {{
     {"export", MenuAction::kFileExport},
 }};
 
+inline constexpr std::array<MenuCommand, 2> kEditMenuCommands = {{
+    {"undo", MenuAction::kUndo},
+    {"redo", MenuAction::kRedo},
+}};
+
 inline constexpr std::array<MenuCommand, 3> kLayerMenuCommands = {{
     {"new", MenuAction::kLayerNew},
     {"del", MenuAction::kLayerDelete},
@@ -71,6 +77,9 @@ inline constexpr std::array<MenuCommand, 3> kLayerMenuCommands = {{
     }
     if (menu == kFileMenu) {
         return std::span<const MenuCommand>(kFileMenuCommands);
+    }
+    if (menu == kEditMenu) {
+        return std::span<const MenuCommand>(kEditMenuCommands);
     }
     if (menu == kLayerMenu) {
         return std::span<const MenuCommand>(kLayerMenuCommands);
@@ -383,7 +392,17 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
 [[nodiscard]] inline auto f32abs(f32 value) -> f32 { return value < 0.0F ? -value : value; }
 
 [[nodiscard]] inline auto painttool(ToolKind kind) -> b8 {
-    return kind == ToolKind::kPen || kind == ToolKind::kBrush || kind == ToolKind::kErase;
+    return kind == ToolKind::kPen || kind == ToolKind::kBrush || kind == ToolKind::kLine ||
+           kind == ToolKind::kMagic || kind == ToolKind::kRect || kind == ToolKind::kErase;
+}
+
+[[nodiscard]] inline auto stroketool(ToolKind kind) -> b8 {
+    return kind == ToolKind::kPen || kind == ToolKind::kBrush || kind == ToolKind::kMagic ||
+           kind == ToolKind::kErase;
+}
+
+[[nodiscard]] inline auto shapetool(ToolKind kind) -> b8 {
+    return kind == ToolKind::kLine || kind == ToolKind::kRect;
 }
 
 [[nodiscard]] inline auto paintlayer(const GuiState &state) -> const Layer * {
@@ -395,12 +414,15 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
 }
 
 [[nodiscard]] inline auto painttone(ToolKind kind) -> Tone {
-    return kind == ToolKind::kErase ? Tone::kWhite : Tone::kBlack;
+    return kind == ToolKind::kErase || kind == ToolKind::kMagic ? Tone::kWhite : Tone::kBlack;
 }
 
 [[nodiscard]] inline auto stampsize(const GuiState &state, ToolKind kind) -> u8 {
     if (kind == ToolKind::kPen) {
         return 0;
+    }
+    if (kind == ToolKind::kMagic) {
+        return 7;
     }
     return state.cursize;
 }

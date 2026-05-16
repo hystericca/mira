@@ -82,6 +82,25 @@ void markline(GuiState *state, f32 x0, f32 y0, f32 x1, f32 y1, ToolKind kind) {
     }
 }
 
+void markrect(GuiState *state, f32 x0, f32 y0, f32 x1, f32 y1, ToolKind kind) {
+    if (x1 < x0) {
+        std::swap(x0, x1);
+    }
+    if (y1 < y0) {
+        std::swap(y0, y1);
+    }
+
+    mark(state, x0, y0, kind);
+    markline(state, x0, y0, x1, y0, kind);
+    if (y1 != y0) {
+        markline(state, x0, y1, x1, y1, kind);
+    }
+    if (x1 != x0) {
+        markline(state, x0, y0, x0, y1, kind);
+        markline(state, x1, y0, x1, y1, kind);
+    }
+}
+
 } // namespace
 
 void historyclear(GuiState *state) {
@@ -238,6 +257,11 @@ b8 workmouse(GuiState *state, HitRecord hit, i32 x, i32 y, u8 button) {
     state->active_menu = kNoMenu;
     state->context_open = false;
     const ToolKind kind = toolkind(*state);
+    if (kind == ToolKind::kZoom) {
+        zoomat(state, x, y, -1);
+        return true;
+    }
+
     const Layer *layer = paintlayer(*state);
     if (painttool(kind) && layer != nullptr) {
         const f32 document_x = screen_to_paint_x(*state, x);
@@ -247,7 +271,9 @@ b8 workmouse(GuiState *state, HitRecord hit, i32 x, i32 y, u8 button) {
             state->last_paint_x = document_x;
             state->last_paint_y = document_y;
             historystart(state, *layer);
-            mark(state, document_x, document_y, kind);
+            if (stroketool(kind)) {
+                mark(state, document_x, document_y, kind);
+            }
         }
     }
     return true;
@@ -264,6 +290,9 @@ void workmove(GuiState *state, i32 x, i32 y) {
         return;
     }
     const ToolKind kind = toolkind(*state);
+    if (!stroketool(kind)) {
+        return;
+    }
     const f32 document_x = screen_to_paint_x(*state, x);
     const f32 document_y = screen_to_paint_y(*state, y);
     markline(state, state->last_paint_x, state->last_paint_y, document_x, document_y, kind);
@@ -279,7 +308,17 @@ void workup(GuiState *state, i32 x, i32 y) {
         const ToolKind kind = toolkind(*state);
         const f32 document_x = screen_to_paint_x(*state, x);
         const f32 document_y = screen_to_paint_y(*state, y);
-        markline(state, state->last_paint_x, state->last_paint_y, document_x, document_y, kind);
+        if (kind == ToolKind::kLine) {
+            mark(state, state->last_paint_x, state->last_paint_y, kind);
+            markline(state, state->last_paint_x, state->last_paint_y, document_x, document_y,
+                     kind);
+        } else if (kind == ToolKind::kRect) {
+            markrect(state, state->last_paint_x, state->last_paint_y, document_x, document_y,
+                     kind);
+        } else {
+            markline(state, state->last_paint_x, state->last_paint_y, document_x, document_y,
+                     kind);
+        }
     }
     historyfinish(state);
 }
