@@ -290,6 +290,13 @@ inline void pushtool(GuiState *state, u32 id, std::string_view name, ToolKind ki
     (void)state->tools.push(tool);
 }
 
+inline void pushtip(GuiState *state, u8 index, b8 selected) {
+    (void)state->tips.push({
+        .index = index,
+        .selected = static_cast<u8>(selected ? 1U : 0U),
+    });
+}
+
 inline void pushsize(GuiState *state, u8 index, b8 selected) {
     (void)state->sizes.push({
         .index = index,
@@ -297,8 +304,8 @@ inline void pushsize(GuiState *state, u8 index, b8 selected) {
     });
 }
 
-inline void pushpattern(GuiState *state, u8 index, b8 selected) {
-    (void)state->patterns.push({
+inline void pushtexture(GuiState *state, u8 index, b8 selected) {
+    (void)state->textures.push({
         .index = index,
         .selected = static_cast<u8>(selected ? 1U : 0U),
     });
@@ -324,6 +331,16 @@ inline void select_tool(GuiState *state, u8 index) {
     }
 }
 
+inline void select_tip(GuiState *state, u8 index) {
+    if (index >= state->tips.size()) {
+        return;
+    }
+    state->curtip = index;
+    for (usize tip_index = 0; tip_index < state->tips.size(); ++tip_index) {
+        state->tips[tip_index].selected = tip_index == index ? 1U : 0U;
+    }
+}
+
 inline void select_size(GuiState *state, u8 index) {
     if (index >= state->sizes.size()) {
         return;
@@ -334,13 +351,13 @@ inline void select_size(GuiState *state, u8 index) {
     }
 }
 
-inline void select_pattern(GuiState *state, u8 index) {
-    if (index >= state->patterns.size()) {
+inline void select_texture(GuiState *state, u8 index) {
+    if (index >= state->textures.size()) {
         return;
     }
-    state->curpattern = index;
-    for (usize pattern_index = 0; pattern_index < state->patterns.size(); ++pattern_index) {
-        state->patterns[pattern_index].selected = pattern_index == index ? 1U : 0U;
+    state->curtexture = index;
+    for (usize texture_index = 0; texture_index < state->textures.size(); ++texture_index) {
+        state->textures[texture_index].selected = texture_index == index ? 1U : 0U;
     }
 }
 
@@ -405,6 +422,20 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
     return kind == ToolKind::kLine || kind == ToolKind::kRect;
 }
 
+[[nodiscard]] inline auto sizetool(ToolKind kind) -> b8 {
+    return kind == ToolKind::kBrush || kind == ToolKind::kLine || kind == ToolKind::kRect ||
+           kind == ToolKind::kErase;
+}
+
+[[nodiscard]] inline auto tiptool(ToolKind kind) -> b8 {
+    return sizetool(kind);
+}
+
+[[nodiscard]] inline auto texturetool(ToolKind kind) -> b8 {
+    return kind == ToolKind::kPen || kind == ToolKind::kBrush || kind == ToolKind::kLine ||
+           kind == ToolKind::kRect || kind == ToolKind::kErase;
+}
+
 [[nodiscard]] inline auto paintlayer(const GuiState &state) -> const Layer * {
     const Layer *layer = layercur(state);
     if (layer == nullptr || layerlocked(*layer) || layer->kind != LayerKind::kInk) {
@@ -425,6 +456,23 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
         return 7;
     }
     return state.cursize;
+}
+
+[[nodiscard]] inline auto stamptip(const GuiState &state, ToolKind kind) -> u8 {
+    if (kind == ToolKind::kPen) {
+        return 0;
+    }
+    if (kind == ToolKind::kMagic) {
+        return 7;
+    }
+    return state.curtip;
+}
+
+[[nodiscard]] inline auto stamptexture(const GuiState &state, ToolKind kind) -> u8 {
+    if (!texturetool(kind)) {
+        return 0;
+    }
+    return state.curtexture;
 }
 
 [[nodiscard]] inline auto toolkind(const GuiState &state) -> ToolKind {
@@ -503,8 +551,13 @@ void dialoglayout(GuiState *state);
 void dialogdraw(const GuiState &state, DrawList *draws);
 
 void toollayout(GuiState *state);
+void tooltick(GuiState *state);
+[[nodiscard]] b8 toolanimating(const GuiState &state);
+[[nodiscard]] b8 toolkey(GuiState *state, Key key);
+[[nodiscard]] b8 toolmodalmouse(GuiState *state, HitRecord hit);
 [[nodiscard]] b8 toolmouse(GuiState *state, HitRecord hit);
 void tooldraw(const GuiState &state, DrawList *draws);
+void toolpopupdraw(const GuiState &state, DrawList *draws);
 
 void layerlayout(GuiState *state);
 [[nodiscard]] b8 layermouse(GuiState *state, HitRecord hit, i32 x);

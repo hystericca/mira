@@ -36,9 +36,7 @@ void closedialog(GuiState *state) {
     state->new_dialog = false;
 }
 
-void accept(GuiState *state) {
-    docnew(state, state->new_width, state->new_height);
-}
+void accept(GuiState *state) { docnew(state, state->new_width, state->new_height); }
 
 void drawfield(const GuiState &state, DrawList *draws, Rect field, u8 index, i32 value) {
     const b8 active = state.new_field == index;
@@ -233,9 +231,9 @@ void dialogdraw(const GuiState &state, DrawList *draws) {
         const f32 text_x = state.layout.dialog_logo.x + state.layout.dialog_logo.width + 11.0F;
         const f32 text_y = state.layout.dialog_logo.y + 1.0F;
         drawtext(draws, "THIS PROJECT IS", text_x, text_y, Tone::kBlack);
-        drawtext(draws, "INSPIRED BY THE", text_x, text_y + 12.0F, Tone::kBlack);
-        drawtext(draws, "WORKS OF", text_x, text_y + 24.0F, Tone::kBlack);
-        drawtext(draws, "PLACEHOLDER", text_x, text_y + 36.0F, Tone::kBlack);
+        drawtext(draws, "PERSONAL", text_x, text_y + 12.0F, Tone::kBlack);
+        drawtext(draws, "DONT BOTHER ME", text_x, text_y + 24.0F, Tone::kBlack);
+        drawtext(draws, "I LOVE MY COMPUTER", text_x, text_y + 36.0F, Tone::kBlack);
         drawbutton(state, draws, state.layout.dialog_ok, 0, "ok");
         return;
     }

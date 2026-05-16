@@ -110,7 +110,7 @@ auto main() -> int {
         return 1;
     }
 
-    PrintMetric("mira_draw_bench_version", 5);
+    PrintMetric("mira_draw_bench_version", 6);
     PrintMetric("frames", kFrames);
     PrintMetric("cpu_frame_us", frame_us);
     PrintMetric("upload_bytes_per_frame", list.upload_bytes());
@@ -119,6 +119,7 @@ auto main() -> int {
     PrintMetric("rect_count", list.rects.size());
     PrintMetric("glyph_count", list.glyphs.size());
     PrintMetric("icon_count", list.icons.size());
+    PrintMetric("guide_stamp_count", list.guide_stamps.size());
     PrintMetric("allocation_calls", g_allocation_calls.load(std::memory_order_relaxed));
     PrintMetric("allocation_bytes", g_allocation_bytes.load(std::memory_order_relaxed));
     PrintMetric("overflow_count", list.overflow_count());

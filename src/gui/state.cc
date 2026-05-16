@@ -6,8 +6,9 @@ namespace impl = gui;
 void guiinit(GuiState *state) {
     state->layers.clear();
     state->tools.clear();
+    state->tips.clear();
     state->sizes.clear();
-    state->patterns.clear();
+    state->textures.clear();
     state->paint_stamps.clear();
     state->strokes.clear();
     state->stroke_stamps.clear();
@@ -23,8 +24,9 @@ void guiinit(GuiState *state) {
     state->active_index = 0;
     state->curlayer = 0;
     state->curtool = 0;
+    state->curtip = 3;
     state->cursize = 3;
-    state->curpattern = 0;
+    state->curtexture = 0;
     state->new_field = 0;
     state->active_menu = kNoMenu;
     state->context_target = kNoLayer;
@@ -40,6 +42,7 @@ void guiinit(GuiState *state) {
     state->document = {.width = kDefaultDocumentWidth, .height = kDefaultDocumentHeight};
     state->last_paint_x = 0.0F;
     state->last_paint_y = 0.0F;
+    state->brush_t = 0.0F;
     state->last_pan_x = 0;
     state->last_pan_y = 0;
     state->view.x = 0.0F;
@@ -51,6 +54,7 @@ void guiinit(GuiState *state) {
     state->setting_opacity = false;
     state->rename_replace = false;
     state->context_open = false;
+    state->brush_open = false;
     state->about_dialog = false;
     state->new_dialog = false;
     state->new_replace = false;
@@ -67,10 +71,13 @@ void guiinit(GuiState *state) {
     impl::pushtool(state, 6, "zoom", ToolKind::kZoom, false);
     impl::pushtool(state, 7, "erase", ToolKind::kErase, false);
     for (u8 index = 0; index < 8; ++index) {
+        impl::pushtip(state, index, index == state->curtip);
+    }
+    for (u8 index = 0; index < 8; ++index) {
         impl::pushsize(state, index, index == state->cursize);
     }
     for (u8 index = 0; index < 8; ++index) {
-        impl::pushpattern(state, index, index == state->curpattern);
+        impl::pushtexture(state, index, index == state->curtexture);
     }
 
     impl::pushlayer(state, state->next_layer_id, "ink", LayerKind::kInk, 255, true, false, true, 0,

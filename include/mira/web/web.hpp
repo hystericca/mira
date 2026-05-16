@@ -104,6 +104,7 @@ class Web {
     wgpu::Buffer rect_buffer_;
     wgpu::Buffer glyph_buffer_;
     wgpu::Buffer icon_buffer_;
+    wgpu::Buffer guide_stamp_buffer_;
     wgpu::Buffer stamp_buffer_;
     wgpu::Buffer layer_buffer_;
     wgpu::BindGroupLayout bind_group_layout_;
@@ -113,6 +114,7 @@ class Web {
     wgpu::RenderPipeline rect_pipeline_;
     wgpu::RenderPipeline glyph_pipeline_;
     wgpu::RenderPipeline icon_pipeline_;
+    wgpu::RenderPipeline guide_stamp_pipeline_;
     wgpu::RenderPipeline composite_pipeline_;
     wgpu::RenderPipeline stamp_pipeline_;
     wgpu::Texture layer_texture_;

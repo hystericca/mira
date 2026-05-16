@@ -42,6 +42,7 @@ namespace {
         .rect = list.rects.size(),
         .glyph = list.glyphs.size(),
         .icon = list.icons.size(),
+        .guide_stamp = list.guide_stamps.size(),
     };
 }
 
@@ -51,6 +52,7 @@ void DrawList::clear() {
     rects.clear();
     glyphs.clear();
     icons.clear();
+    guide_stamps.clear();
     planes.fill({});
     plane = DrawPlane::kBase;
 }
@@ -70,7 +72,8 @@ void DrawList::begin_plane(DrawPlane next) {
 }
 
 usize DrawList::upload_bytes() const {
-    return rects.byte_size() + glyphs.byte_size() + icons.byte_size();
+    return rects.byte_size() + glyphs.byte_size() + icons.byte_size() +
+           guide_stamps.byte_size();
 }
 
 u32 DrawList::overflow_count() const {
@@ -78,6 +81,7 @@ u32 DrawList::overflow_count() const {
     count += rects.overflowed ? 1U : 0U;
     count += glyphs.overflowed ? 1U : 0U;
     count += icons.overflowed ? 1U : 0U;
+    count += guide_stamps.overflowed ? 1U : 0U;
     return count;
 }
 
@@ -111,6 +115,7 @@ DrawView view(const DrawList &list) {
         .rects = list.rects.span(),
         .glyphs = list.glyphs.span(),
         .icons = list.icons.span(),
+        .guide_stamps = list.guide_stamps.span(),
     };
 }
 
@@ -184,5 +189,7 @@ b8 add_icon(DrawList *list, Icon icon, f32 x, f32 y, Tone tone, f32 scale) {
         .tone = static_cast<f32>(tone_value(tone)),
     });
 }
+
+b8 add_guide_stamp(DrawList *list, PaintStamp stamp) { return list->guide_stamps.push(stamp); }
 
 } // namespace mira

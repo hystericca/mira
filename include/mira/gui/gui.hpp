@@ -12,8 +12,9 @@ namespace mira {
 
 constexpr usize kMaxLayers = 16;
 constexpr usize kMaxTools = 8;
+constexpr usize kMaxTips = 8;
 constexpr usize kMaxSizes = 8;
-constexpr usize kMaxPatterns = 8;
+constexpr usize kMaxTextures = 8;
 constexpr usize kMaxPaintStamps = 32768;
 constexpr usize kMaxStrokeActions = 1024;
 constexpr usize kMaxHistoryStamps = 32768;
@@ -67,6 +68,13 @@ struct Tool {
 };
 static_assert(sizeof(Tool) == 16);
 
+struct Tip {
+    u8 index = 0;
+    u8 selected = 0;
+    u16 _pad = 0;
+};
+static_assert(sizeof(Tip) == 4);
+
 struct Size {
     u8 index = 0;
     u8 selected = 0;
@@ -74,24 +82,12 @@ struct Size {
 };
 static_assert(sizeof(Size) == 4);
 
-struct Pattern {
+struct Texture {
     u8 index = 0;
     u8 selected = 0;
     u16 _pad = 0;
 };
-static_assert(sizeof(Pattern) == 4);
-
-struct PaintStamp {
-    f32 x = 0.0F;
-    f32 y = 0.0F;
-    f32 size = 0.0F;
-    f32 tone = 0.0F;
-    f32 layer = 0.0F;
-    f32 pattern = 0.0F;
-    f32 _pad1 = 0.0F;
-    f32 _pad2 = 0.0F;
-};
-static_assert(sizeof(PaintStamp) == 32);
+static_assert(sizeof(Texture) == 4);
 
 struct StrokeAction {
     u32 layer_id = 0;
@@ -143,8 +139,11 @@ enum class HitKind : u8 {
     kSidebar,
     kMenu,
     kTool,
+    kTip,
     kSize,
-    kPattern,
+    kBrushButton,
+    kBrushPanel,
+    kTexture,
     kLayerRow,
     kLayerVisibility,
     kLayerLock,
@@ -207,8 +206,10 @@ struct GuiLayout {
     Rect menu_bar;
     Rect toolbar;
     Rect tools;
-    Rect sizes;
-    Rect patterns;
+    Rect tips;
+    Rect brush_button;
+    Rect brush_panel;
+    Rect textures;
     Rect viewport;
     Rect document;
     Rect layers;
@@ -225,8 +226,9 @@ struct GuiLayout {
 struct GuiState {
     Table<Layer, kMaxLayers> layers;
     Table<Tool, kMaxTools> tools;
+    Table<Tip, kMaxTips> tips;
     Table<Size, kMaxSizes> sizes;
-    Table<Pattern, kMaxPatterns> patterns;
+    Table<Texture, kMaxTextures> textures;
     Table<PaintStamp, kMaxPaintStamps> paint_stamps;
     Table<StrokeAction, kMaxStrokeActions> strokes;
     Table<PaintStamp, kMaxHistoryStamps> stroke_stamps;
@@ -245,8 +247,9 @@ struct GuiState {
     u8 active_index = 0;
     u8 curlayer = 0;
     u8 curtool = 0;
+    u8 curtip = 3;
     u8 cursize = 3;
-    u8 curpattern = 0;
+    u8 curtexture = 0;
     u8 new_field = 0;
     u8 active_menu = kNoMenu;
     u8 context_target = kNoLayer;
@@ -261,6 +264,7 @@ struct GuiState {
     Rect active_stroke_rect = {};
     f32 last_paint_x = 0.0F;
     f32 last_paint_y = 0.0F;
+    f32 brush_t = 0.0F;
     i16 last_pan_x = 0;
     i16 last_pan_y = 0;
     b8 initialized = false;
@@ -270,6 +274,7 @@ struct GuiState {
     b8 setting_opacity = false;
     b8 rename_replace = false;
     b8 context_open = false;
+    b8 brush_open = false;
     b8 about_dialog = false;
     b8 new_dialog = false;
     b8 new_replace = false;
@@ -284,11 +289,13 @@ struct GuiState {
 [[nodiscard]] b8 layervisible(const Layer &layer);
 [[nodiscard]] b8 layerlocked(const Layer &layer);
 [[nodiscard]] b8 layerselected(const Layer &layer);
+[[nodiscard]] const Tip *tipcur(const GuiState &state);
 [[nodiscard]] const Size *sizecur(const GuiState &state);
-[[nodiscard]] const Pattern *patterncur(const GuiState &state);
+[[nodiscard]] const Texture *texturecur(const GuiState &state);
+[[nodiscard]] Icon tipicon(u8 index);
 [[nodiscard]] Icon sizeicon(u8 index);
 [[nodiscard]] Icon brushicon(u8 index);
-[[nodiscard]] Icon patternicon(u8 index);
+[[nodiscard]] Icon textureicon(u8 index);
 void guiinit(GuiState *state);
 void docnew(GuiState *state, i32 width = kDefaultDocumentWidth,
             i32 height = kDefaultDocumentHeight);
@@ -296,6 +303,7 @@ void guilayout(GuiState *state, Screen screen);
 void guievent(GuiState *state, std::span<const InputEvent> input);
 void guidraw(const GuiState &state, DrawList *draws);
 void guiframe(GuiState *state, Screen screen, std::span<const InputEvent> input, DrawList *draws);
+[[nodiscard]] b8 guianimating(const GuiState &state);
 [[nodiscard]] b8 layeradd(GuiState *state, std::string_view name);
 [[nodiscard]] u8 layerimage(GuiState *state, std::string_view name, u8 opacity = 128);
 [[nodiscard]] b8 layerdel(GuiState *state);

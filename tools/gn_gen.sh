@@ -18,7 +18,13 @@ if [[ ! -d "$DAWN_ROOT/.git" ]]; then
 fi
 
 MIRA_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ln -sfn "$MIRA_ROOT" "$DAWN_ROOT/mira"
+if [[ -L "$DAWN_ROOT/mira" || ! -e "$DAWN_ROOT/mira" ]]; then
+  rm -f "$DAWN_ROOT/mira"
+else
+  echo "$DAWN_ROOT/mira exists and is not a symlink" >&2
+  exit 1
+fi
+ln -s "$MIRA_ROOT" "$DAWN_ROOT/mira"
 
 EXCLUDE="$DAWN_ROOT/.git/info/exclude"
 if ! grep -qxF "/mira" "$EXCLUDE"; then

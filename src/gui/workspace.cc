@@ -28,11 +28,13 @@ void panview(GuiState *state, i32 dx, i32 dy) {
 }
 
 [[nodiscard]] Rect stamprect(PaintStamp stamp) {
+    const f32 diameter = std::max(1.0F, stamp.size + 1.0F);
+    const f32 offset = (diameter - 1.0F) * 0.5F;
     return {
-        .x = stamp.x - 4.0F,
-        .y = stamp.y - 4.0F,
-        .width = 8.0F,
-        .height = 8.0F,
+        .x = stamp.x - offset,
+        .y = stamp.y - offset,
+        .width = diameter,
+        .height = diameter,
     };
 }
 
@@ -49,19 +51,99 @@ void panview(GuiState *state, i32 dx, i32 dy) {
     };
 }
 
+[[nodiscard]] Rect stampviewrect(const GuiState &state, f32 document_x, f32 document_y,
+                                 ToolKind kind) {
+    const f32 diameter = std::max(1.0F, static_cast<f32>(stampsize(state, kind)) + 1.0F);
+    const f32 offset = (diameter - 1.0F) * 0.5F;
+    return {
+        .x = document_to_screen_x(state, document_x - offset),
+        .y = document_to_screen_y(state, document_y - offset),
+        .width = diameter * state.view.zoom,
+        .height = diameter * state.view.zoom,
+    };
+}
+
+[[nodiscard]] PaintStamp stampfor(const GuiState &state, f32 document_x, f32 document_y,
+                                  ToolKind kind, f32 layer) {
+    return {
+        .x = document_x,
+        .y = document_y,
+        .size = static_cast<f32>(stampsize(state, kind)),
+        .tone = static_cast<f32>(tone_value(painttone(kind))),
+        .layer = layer,
+        .tip = static_cast<f32>(stamptip(state, kind)),
+        .texture = static_cast<f32>(stamptexture(state, kind)),
+    };
+}
+
+void markguide(const GuiState &state, DrawList *draws, f32 document_x, f32 document_y,
+               ToolKind kind) {
+    if (!painttool(kind) || !in_document(state, document_x, document_y)) {
+        return;
+    }
+    (void)add_guide_stamp(draws, stampfor(state, document_x, document_y, kind, 0.0F));
+}
+
+void markguideline(const GuiState &state, DrawList *draws, f32 x0, f32 y0, f32 x1, f32 y1,
+                   ToolKind kind) {
+    if (!painttool(kind)) {
+        return;
+    }
+    const f32 dx = x1 - x0;
+    const f32 dy = y1 - y0;
+    const i32 steps = static_cast<i32>(std::max(f32abs(dx), f32abs(dy)));
+    if (steps == 0) {
+        return;
+    }
+    for (i32 step = 1; step <= steps; ++step) {
+        const f32 t = static_cast<f32>(step) / static_cast<f32>(steps);
+        markguide(state, draws, x0 + (dx * t), y0 + (dy * t), kind);
+    }
+}
+
+void markguiderect(const GuiState &state, DrawList *draws, f32 x0, f32 y0, f32 x1, f32 y1,
+                   ToolKind kind) {
+    if (x1 < x0) {
+        std::swap(x0, x1);
+    }
+    if (y1 < y0) {
+        std::swap(y0, y1);
+    }
+
+    markguide(state, draws, x0, y0, kind);
+    markguideline(state, draws, x0, y0, x1, y0, kind);
+    if (y1 != y0) {
+        markguideline(state, draws, x0, y1, x1, y1, kind);
+    }
+    if (x1 != x0) {
+        markguideline(state, draws, x0, y0, x0, y1, kind);
+        markguideline(state, draws, x1, y0, x1, y1, kind);
+    }
+}
+
+void drawshapestamps(const GuiState &state, DrawList *draws, ToolKind kind) {
+    if (!state.painting || !shapetool(kind) || paintlayer(state) == nullptr) {
+        return;
+    }
+    const f32 x0 = state.last_paint_x;
+    const f32 y0 = state.last_paint_y;
+    const f32 x1 = screen_to_paint_x(state, state.mouse_x);
+    const f32 y1 = screen_to_paint_y(state, state.mouse_y);
+    if (kind == ToolKind::kLine) {
+        markguide(state, draws, x0, y0, kind);
+        markguideline(state, draws, x0, y0, x1, y1, kind);
+    } else if (kind == ToolKind::kRect) {
+        markguiderect(state, draws, x0, y0, x1, y1, kind);
+    }
+}
+
 void mark(GuiState *state, f32 document_x, f32 document_y, ToolKind kind) {
     const Layer *layer = paintlayer(*state);
     if (!painttool(kind) || layer == nullptr || !in_document(*state, document_x, document_y)) {
         return;
     }
-    const PaintStamp stamp = {
-        .x = document_x,
-        .y = document_y,
-        .size = static_cast<f32>(stampsize(*state, kind)),
-        .tone = static_cast<f32>(tone_value(painttone(kind))),
-        .layer = static_cast<f32>(layer->texture_slot),
-        .pattern = static_cast<f32>(state->curpattern),
-    };
+    const PaintStamp stamp = stampfor(*state, document_x, document_y, kind,
+                                      static_cast<f32>(layer->texture_slot));
     (void)state->paint_stamps.push(stamp);
     historymark(state, stamp);
 }
@@ -325,23 +407,20 @@ void workup(GuiState *state, i32 x, i32 y) {
 
 void workdraw(const GuiState &state, DrawList *draws) {
     const ToolKind active_tool = toolkind(state);
-    if (state.hot_kind == HitKind::kViewport && painttool(active_tool)) {
+    if (state.hot_kind == HitKind::kViewport && painttool(active_tool) &&
+        !(state.painting && shapetool(active_tool))) {
         const f32 document_x = screen_to_paint_x(state, state.mouse_x);
         const f32 document_y = screen_to_paint_y(state, state.mouse_y);
-        const f32 preview_x = document_to_screen_x(state, document_x) - (4.0F * state.view.zoom);
-        const f32 preview_y = document_to_screen_y(state, document_y) - (4.0F * state.view.zoom);
-        const f32 preview_size = 8.0F * state.view.zoom;
-        const Rect preview = {
-            .x = preview_x,
-            .y = preview_y,
-            .width = preview_size,
-            .height = preview_size,
-        };
+        const Rect preview = stampviewrect(state, document_x, document_y, active_tool);
         if (paintlayer(state) != nullptr && in_document(state, document_x, document_y) &&
             containsrect(state.layout.viewport, preview) &&
             containsrect(state.layout.document, preview)) {
-            drawicon(draws, brushicon(stampsize(state, active_tool)), preview_x, preview_y,
-                     Tone::kBlack, state.view.zoom);
+            if (stampsize(state, active_tool) == 0) {
+                drawstroke(draws, preview, Tone::kBlack);
+            } else {
+                drawicon(draws, brushicon(stamptip(state, active_tool)), preview.x, preview.y,
+                         Tone::kBlack, preview.width / 8.0F);
+            }
         }
     }
 
@@ -395,6 +474,7 @@ void workdraw(const GuiState &state, DrawList *draws) {
     if (!empty(visible_document)) {
         drawstroke(draws, visible_document, Tone::kBlack);
     }
+    drawshapestamps(state, draws, active_tool);
 }
 
 } // namespace mira::gui

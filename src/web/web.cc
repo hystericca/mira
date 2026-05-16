@@ -18,6 +18,7 @@ constexpr char kCanvasSelector[] = "#canvas";
 constexpr usize kRectBufferBytes = kMaxRects * sizeof(RectDraw);
 constexpr usize kGlyphBufferBytes = kMaxGlyphs * sizeof(GlyphDraw);
 constexpr usize kIconBufferBytes = kMaxIcons * sizeof(IconDraw);
+constexpr usize kGuideStampBufferBytes = kMaxGuideStamps * sizeof(PaintStamp);
 constexpr usize kStampBufferBytes = kMaxPaintStamps * sizeof(PaintStamp);
 constexpr usize kLayerBufferBytes = kMaxLayers * sizeof(f32) * 4U;
 
@@ -151,8 +152,9 @@ void Web::frame() {
     }
 
     if (device_lost_ || !resize() || rect_pipeline_ == nullptr || glyph_pipeline_ == nullptr ||
-        icon_pipeline_ == nullptr || composite_pipeline_ == nullptr || stamp_pipeline_ == nullptr ||
-        bind_group_ == nullptr || layer_bind_group_ == nullptr) {
+        icon_pipeline_ == nullptr || guide_stamp_pipeline_ == nullptr ||
+        composite_pipeline_ == nullptr || stamp_pipeline_ == nullptr || bind_group_ == nullptr ||
+        layer_bind_group_ == nullptr) {
         return;
     }
     if (!draw_dirty_) {
@@ -232,7 +234,7 @@ void Web::frame() {
         return;
     }
     queue_.Submit(1, &commands);
-    draw_dirty_ = false;
+    draw_dirty_ = guianimating(gui_);
     if (pending_export_) {
         pending_export_ = false;
         export_png();
@@ -543,13 +545,14 @@ auto Web::make_pipeline() -> b8 {
     rect_buffer_ = make_vertex_buffer(device_, kRectBufferBytes);
     glyph_buffer_ = make_vertex_buffer(device_, kGlyphBufferBytes);
     icon_buffer_ = make_vertex_buffer(device_, kIconBufferBytes);
+    guide_stamp_buffer_ = make_vertex_buffer(device_, kGuideStampBufferBytes);
     stamp_buffer_ = make_vertex_buffer(device_, kStampBufferBytes);
     wgpu::BufferDescriptor layer_buffer_descriptor = {};
     layer_buffer_descriptor.size = kLayerBufferBytes;
     layer_buffer_descriptor.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
     layer_buffer_ = device_.CreateBuffer(&layer_buffer_descriptor);
     if (rect_buffer_ == nullptr || glyph_buffer_ == nullptr || icon_buffer_ == nullptr ||
-        stamp_buffer_ == nullptr || layer_buffer_ == nullptr) {
+        guide_stamp_buffer_ == nullptr || stamp_buffer_ == nullptr || layer_buffer_ == nullptr) {
         return false;
     }
     if (!make_layer_texture()) {
@@ -681,6 +684,7 @@ auto Web::make_pipeline() -> b8 {
     rect_pipeline_ = make_render_pipeline("vs_rect", "fs_rect");
     glyph_pipeline_ = make_render_pipeline("vs_glyph", "fs_glyph");
     icon_pipeline_ = make_render_pipeline("vs_icon", "fs_icon");
+    guide_stamp_pipeline_ = make_render_pipeline("vs_screen_stamp", "fs_screen_stamp");
 
     wgpu::ColorTargetState composite_color_target = {};
     composite_color_target.format = surface_format_;
@@ -729,7 +733,8 @@ auto Web::make_pipeline() -> b8 {
     stamp_pipeline_ = device_.CreateRenderPipeline(&stamp_descriptor);
 
     return rect_pipeline_ != nullptr && glyph_pipeline_ != nullptr && icon_pipeline_ != nullptr &&
-           composite_pipeline_ != nullptr && stamp_pipeline_ != nullptr;
+           guide_stamp_pipeline_ != nullptr && composite_pipeline_ != nullptr &&
+           stamp_pipeline_ != nullptr;
 }
 
 auto Web::make_layer_texture() -> b8 {
@@ -898,6 +903,10 @@ auto Web::upload_draws() -> b8 {
     if (!draws_.icons.empty()) {
         queue_.WriteBuffer(icon_buffer_, 0, draws_.icons.data(), draws_.icons.byte_size());
     }
+    if (!draws_.guide_stamps.empty()) {
+        queue_.WriteBuffer(guide_stamp_buffer_, 0, draws_.guide_stamps.data(),
+                           draws_.guide_stamps.byte_size());
+    }
     if (!gui_.paint_stamps.empty()) {
         queue_.WriteBuffer(stamp_buffer_, 0, gui_.paint_stamps.data(),
                            gui_.paint_stamps.byte_size());
@@ -976,6 +985,8 @@ void Web::encode_gui(wgpu::RenderPassEncoder pass) {
                   sizeof(GlyphDraw));
         draw_rows(pass, icon_pipeline_, icon_buffer_, begin.icon, end.icon - begin.icon,
                   sizeof(IconDraw));
+        draw_rows(pass, guide_stamp_pipeline_, guide_stamp_buffer_, begin.guide_stamp,
+                  end.guide_stamp - begin.guide_stamp, sizeof(PaintStamp));
     }
 }
 

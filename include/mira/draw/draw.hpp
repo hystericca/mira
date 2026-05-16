@@ -13,6 +13,7 @@ namespace mira {
 constexpr usize kMaxRects = 2048;
 constexpr usize kMaxGlyphs = 2048;
 constexpr usize kMaxIcons = 8192;
+constexpr usize kMaxGuideStamps = 32768;
 constexpr f32 kFontWidth = static_cast<f32>(kFontWidthPixels);
 constexpr f32 kFontHeight = static_cast<f32>(kFontHeightPixels);
 
@@ -48,16 +49,24 @@ enum class Icon : u8 {
     kBrushSize6,
     kBrushSize7,
     kBrushSize8,
-    kPatternFull,
-    kPatternA,
-    kPatternB,
-    kPatternC,
-    kPatternDiagR,
-    kPatternDiagL,
-    kPatternVertical,
-    kPatternHorizontal,
+    kTextureFull,
+    kTextureA,
+    kTextureB,
+    kTextureC,
+    kTextureDiagR,
+    kTextureDiagL,
+    kTextureVertical,
+    kTextureHorizontal,
     kLockOpen,
     kLockClosed,
+    kTipRound,
+    kTipSquare,
+    kTipSlashR,
+    kTipSlashL,
+    kTipFlatH,
+    kTipFlatV,
+    kTipRake,
+    kTipScatter,
 };
 
 struct Rect {
@@ -106,9 +115,21 @@ struct IconDraw {
     f32 _pad2 = 0.0F;
 };
 
+struct PaintStamp {
+    f32 x = 0.0F;
+    f32 y = 0.0F;
+    f32 size = 0.0F;
+    f32 tone = 0.0F;
+    f32 layer = 0.0F;
+    f32 tip = 0.0F;
+    f32 texture = 0.0F;
+    f32 _pad = 0.0F;
+};
+
 static_assert(sizeof(RectDraw) == 32);
 static_assert(sizeof(GlyphDraw) == 32);
 static_assert(sizeof(IconDraw) == 32);
+static_assert(sizeof(PaintStamp) == 32);
 
 enum class DrawPlane : u8 {
     kBase,
@@ -126,12 +147,14 @@ struct DrawPlaneStart {
     usize rect = 0;
     usize glyph = 0;
     usize icon = 0;
+    usize guide_stamp = 0;
 };
 
 struct DrawList {
     Table<RectDraw, kMaxRects> rects;
     Table<GlyphDraw, kMaxGlyphs> glyphs;
     Table<IconDraw, kMaxIcons> icons;
+    Table<PaintStamp, kMaxGuideStamps> guide_stamps;
     std::array<DrawPlaneStart, kDrawPlaneCount> planes = {};
     DrawPlane plane = DrawPlane::kBase;
 
@@ -148,6 +171,7 @@ struct DrawView {
     std::span<const RectDraw> rects;
     std::span<const GlyphDraw> glyphs;
     std::span<const IconDraw> icons;
+    std::span<const PaintStamp> guide_stamps;
 };
 
 [[nodiscard]] Screen screen_for(i32 width, i32 height);
@@ -158,5 +182,6 @@ struct DrawView {
 [[nodiscard]] b8 add_text(DrawList *list, std::string_view text, f32 x, f32 y, Tone tone,
                           f32 scale = 1.0F);
 [[nodiscard]] b8 add_icon(DrawList *list, Icon icon, f32 x, f32 y, Tone tone, f32 scale = 1.0F);
+[[nodiscard]] b8 add_guide_stamp(DrawList *list, PaintStamp stamp);
 
 } // namespace mira

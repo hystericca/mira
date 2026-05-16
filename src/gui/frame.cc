@@ -26,14 +26,16 @@ void guilayout(GuiState *state, Screen screen) {
                   .y = menu_height + 8.0F,
                   .width = 20.0F,
                   .height = std::max(1.0F, body_height - 16.0F)},
-        .sizes = {.x = 36.0F,
-                  .y = menu_height + 8.0F,
-                  .width = 20.0F,
-                  .height = std::max(1.0F, body_height - 16.0F)},
-        .patterns = {.x = 64.0F,
-                     .y = menu_height + 8.0F,
-                     .width = 20.0F,
-                     .height = std::max(1.0F, body_height - 16.0F)},
+        .tips = {.x = 36.0F,
+                 .y = menu_height + 8.0F,
+                 .width = 20.0F,
+                 .height = std::max(1.0F, body_height - 16.0F)},
+        .brush_button = {.x = 64.0F,
+                         .y = menu_height + 8.0F,
+                         .width = 20.0F,
+                         .height = 21.0F},
+        .brush_panel = {},
+        .textures = {},
         .viewport = {.x = viewport_x,
                      .y = menu_height,
                      .width = viewport_width,
@@ -110,6 +112,9 @@ void guievent(GuiState *state, std::span<const InputEvent> input) {
                                   hit.kind);
         } else if (event.kind == InputKind::kKeyDown) {
             const auto key = static_cast<Key>(event.button);
+            if (impl::toolkey(state, key)) {
+                continue;
+            }
             if (!impl::layerkey(state, key)) {
                 if (key == Key::kUndo) {
                     (void)impl::historyundo(state);
@@ -130,6 +135,10 @@ void guievent(GuiState *state, std::span<const InputEvent> input) {
 
             if (event.button == 2) {
                 impl::contextopen(state, hit, event.x, event.y);
+                continue;
+            }
+
+            if (impl::toolmodalmouse(state, hit)) {
                 continue;
             }
 
@@ -161,6 +170,7 @@ void guidraw(const GuiState &state, DrawList *draws) {
     impl::tooldraw(state, draws);
     impl::layerdraw(state, draws);
     impl::menudraw(state, draws);
+    impl::toolpopupdraw(state, draws);
     impl::contextdraw(state, draws);
     impl::dialogdraw(state, draws);
 }
@@ -173,9 +183,12 @@ void guiframe(GuiState *state, Screen screen, std::span<const InputEvent> input,
     if (!input.empty()) {
         guilayout(state, screen);
     }
+    impl::tooltick(state);
     impl::historyreplay(state);
     impl::update_document_rect(state);
     guidraw(*state, draws);
 }
+
+b8 guianimating(const GuiState &state) { return impl::toolanimating(state); }
 
 } // namespace mira
