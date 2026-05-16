@@ -5,7 +5,7 @@ namespace {
 
 using SourceGlyph = std::array<u32, kFontHeightPixels>;
 
-// public-domain misc-fixed 6x13 ASCII rows, expanded into Mira's 8x13 subfont at startup
+// 6x13 ascii no scope shoutout plan 9
 constexpr std::array<SourceGlyph, kFontCount> kSourceGlyphs = {{
     SourceGlyph{0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U},
     SourceGlyph{0U, 0U, 8U, 8U, 8U, 8U, 8U, 8U, 8U, 0U, 8U, 0U, 0U},
