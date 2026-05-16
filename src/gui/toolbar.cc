@@ -12,6 +12,13 @@ const Size *sizecur(const GuiState &state) {
     return &state.sizes[state.cursize];
 }
 
+const Pattern *patterncur(const GuiState &state) {
+    if (state.curpattern >= state.patterns.size()) {
+        return nullptr;
+    }
+    return &state.patterns[state.curpattern];
+}
+
 const Tool *toolcur(const GuiState &state) {
     if (state.curtool >= state.tools.size()) {
         return nullptr;
@@ -63,6 +70,28 @@ Icon brushicon(u8 index) {
     }
 }
 
+Icon patternicon(u8 index) {
+    switch (index) {
+    case 1:
+        return Icon::kPatternA;
+    case 2:
+        return Icon::kPatternB;
+    case 3:
+        return Icon::kPatternC;
+    case 4:
+        return Icon::kPatternDiagR;
+    case 5:
+        return Icon::kPatternDiagL;
+    case 6:
+        return Icon::kPatternVertical;
+    case 7:
+        return Icon::kPatternHorizontal;
+    case 0:
+    default:
+        return Icon::kPatternFull;
+    }
+}
+
 } // namespace mira
 
 namespace mira::gui {
@@ -89,6 +118,16 @@ void toollayout(GuiState *state) {
                 .height = 21.0F},
                HitKind::kSize, static_cast<u8>(index), 85);
     }
+
+    for (usize index = 0; index < state->patterns.size(); ++index) {
+        const f32 row_y = state->layout.patterns.y + static_cast<f32>(index) * 24.0F;
+        addhit(state,
+               {.x = state->layout.patterns.x,
+                .y = row_y,
+                .width = state->layout.patterns.width,
+                .height = 21.0F},
+               HitKind::kPattern, static_cast<u8>(index), 85);
+    }
 }
 
 b8 toolmouse(GuiState *state, HitRecord hit) {
@@ -104,6 +143,12 @@ b8 toolmouse(GuiState *state, HitRecord hit) {
         select_size(state, hit.index);
         return true;
     }
+    if (hit.kind == HitKind::kPattern) {
+        layerdone(state);
+        state->active_menu = kNoMenu;
+        select_pattern(state, hit.index);
+        return true;
+    }
     return false;
 }
 
@@ -112,6 +157,12 @@ void tooldraw(const GuiState &state, DrawList *draws) {
     drawstroke(draws, state.layout.toolbar, Tone::kBlack);
     drawrect(draws,
              {.x = state.layout.sizes.x - 3.0F,
+              .y = state.layout.toolbar.y,
+              .width = 1.0F,
+              .height = state.layout.toolbar.height},
+             Tone::kBlack);
+    drawrect(draws,
+             {.x = state.layout.patterns.x - 3.0F,
               .y = state.layout.toolbar.y,
               .width = 1.0F,
               .height = state.layout.toolbar.height},
@@ -154,6 +205,26 @@ void tooldraw(const GuiState &state, DrawList *draws) {
         }
         const f32 icon_x = row.x + std::max(0.0F, (row.width - 12.0F) * 0.5F);
         drawicon(draws, sizeicon(size.index), icon_x, row.y + 4.0F,
+                 inverted ? Tone::kWhite : Tone::kBlack, 1.5F);
+    }
+
+    for (usize index = 0; index < state.patterns.size(); ++index) {
+        const Pattern &pattern = state.patterns[index];
+        const f32 row_y = state.layout.patterns.y + static_cast<f32>(index) * 24.0F;
+        const Rect row = {
+            .x = state.layout.patterns.x,
+            .y = row_y,
+            .width = state.layout.patterns.width,
+            .height = 21.0F,
+        };
+        const b8 hot_row = state.hot_kind == HitKind::kPattern && state.hot_index == index;
+        const b8 selected = pattern.selected != 0;
+        const b8 inverted = selected || hot_row;
+        if (inverted) {
+            drawrect(draws, row, Tone::kBlack);
+        }
+        const f32 icon_x = row.x + std::max(0.0F, (row.width - 12.0F) * 0.5F);
+        drawicon(draws, patternicon(pattern.index), icon_x, row.y + 4.0F,
                  inverted ? Tone::kWhite : Tone::kBlack, 1.5F);
     }
 }

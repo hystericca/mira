@@ -60,6 +60,7 @@ void mark(GuiState *state, f32 document_x, f32 document_y, ToolKind kind) {
         .size = static_cast<f32>(stampsize(*state, kind)),
         .tone = static_cast<f32>(tone_value(painttone(kind))),
         .layer = static_cast<f32>(layer->texture_slot),
+        .pattern = static_cast<f32>(state->curpattern),
     };
     (void)state->paint_stamps.push(stamp);
     historymark(state, stamp);

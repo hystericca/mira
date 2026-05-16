@@ -11,7 +11,7 @@ void guilayout(GuiState *state, Screen screen) {
     const f32 width = static_cast<f32>(std::max(1, screen.width));
     const f32 height = static_cast<f32>(std::max(1, screen.height));
     const f32 menu_height = std::min(18.0F, height);
-    const f32 toolbar_width = std::min(64.0F, std::max(56.0F, width * 0.10F));
+    const f32 toolbar_width = std::min(92.0F, std::max(84.0F, width * 0.15F));
     const f32 layers_width = std::min(160.0F, std::max(124.0F, width * 0.25F));
     const f32 viewport_x = toolbar_width;
     const f32 viewport_width = std::max(1.0F, width - toolbar_width - layers_width);
@@ -30,6 +30,10 @@ void guilayout(GuiState *state, Screen screen) {
                   .y = menu_height + 8.0F,
                   .width = 20.0F,
                   .height = std::max(1.0F, body_height - 16.0F)},
+        .patterns = {.x = 64.0F,
+                     .y = menu_height + 8.0F,
+                     .width = 20.0F,
+                     .height = std::max(1.0F, body_height - 16.0F)},
         .viewport = {.x = viewport_x,
                      .y = menu_height,
                      .width = viewport_width,

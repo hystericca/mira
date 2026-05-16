@@ -47,6 +47,8 @@ struct StampVertex {
     @location(0) local: vec2<f32>,
     @location(1) size_index: f32,
     @location(2) tone: f32,
+    @location(3) pattern: f32,
+    @location(4) doc: vec2<f32>,
 }
 
 @group(0) @binding(0)
@@ -168,6 +170,14 @@ fn icon_row_bits(code: u32, row: u32) -> u32 {
     let brush_size6 = array<u32, 8>(0x10u, 0x28u, 0x44u, 0x82u, 0x44u, 0x28u, 0x10u, 0x00u);
     let brush_size7 = array<u32, 8>(0x38u, 0x44u, 0x82u, 0x82u, 0x82u, 0x44u, 0x38u, 0x00u);
     let brush_size8 = array<u32, 8>(0x7cu, 0x82u, 0x82u, 0x82u, 0x82u, 0x82u, 0x7cu, 0x00u);
+    let pattern_full = array<u32, 8>(0xfeu, 0xfeu, 0xfeu, 0xfeu, 0xfeu, 0xfeu, 0xfeu, 0x00u);
+    let pattern_a = array<u32, 8>(0xfeu, 0xd6u, 0xaau, 0xd6u, 0xaau, 0xd6u, 0xfeu, 0x00u);
+    let pattern_b = array<u32, 8>(0xfeu, 0x92u, 0x82u, 0xd6u, 0x82u, 0x92u, 0xfeu, 0x00u);
+    let pattern_c = array<u32, 8>(0xfeu, 0x82u, 0x92u, 0xaau, 0x92u, 0x82u, 0xfeu, 0x00u);
+    let pattern_diag_r = array<u32, 8>(0xfeu, 0xa6u, 0xcau, 0x92u, 0xa6u, 0xcau, 0xfeu, 0x00u);
+    let pattern_diag_l = array<u32, 8>(0xfeu, 0xcau, 0xa6u, 0x92u, 0xcau, 0xa6u, 0xfeu, 0x00u);
+    let pattern_vertical = array<u32, 8>(0xfeu, 0xaau, 0xaau, 0xaau, 0xaau, 0xaau, 0xfeu, 0x00u);
+    let pattern_horizontal = array<u32, 8>(0xfeu, 0x82u, 0xfeu, 0x82u, 0xfeu, 0x82u, 0xfeu, 0x00u);
     let lock_open = array<u32, 8>(0x0cu, 0x12u, 0x10u, 0x7eu, 0x42u, 0x5au, 0x42u, 0x7eu);
     let lock_closed = array<u32, 8>(0x18u, 0x24u, 0x24u, 0x7eu, 0x42u, 0x5au, 0x42u, 0x7eu);
 
@@ -195,8 +205,16 @@ fn icon_row_bits(code: u32, row: u32) -> u32 {
         case 20u: { return brush_size6[row]; }
         case 21u: { return brush_size7[row]; }
         case 22u: { return brush_size8[row]; }
-        case 23u: { return lock_open[row]; }
-        case 24u: { return lock_closed[row]; }
+        case 23u: { return pattern_full[row]; }
+        case 24u: { return pattern_a[row]; }
+        case 25u: { return pattern_b[row]; }
+        case 26u: { return pattern_c[row]; }
+        case 27u: { return pattern_diag_r[row]; }
+        case 28u: { return pattern_diag_l[row]; }
+        case 29u: { return pattern_vertical[row]; }
+        case 30u: { return pattern_horizontal[row]; }
+        case 31u: { return lock_open[row]; }
+        case 32u: { return lock_closed[row]; }
         default: { return 0u; }
     }
 }
@@ -221,6 +239,26 @@ fn size_row_bits(code: u32, row: u32) -> u32 {
         case 6u: { return size7[row]; }
         case 7u: { return size8[row]; }
         default: { return size1[row]; }
+    }
+}
+
+fn pattern_on(code: u32, x: i32, y: i32) -> bool {
+    switch code {
+        case 0u: { return true; }
+        case 1u: { return ((x + y) & 1) == 0; }
+        case 2u: {
+            return (((x & 3) == 0) && ((y & 3) == 0)) ||
+                ((((x + 2) & 3) == 0) && (((y + 2) & 3) == 0));
+        }
+        case 3u: {
+            return (((x & 7) == 0) && ((y & 7) == 0)) ||
+                ((((x + 4) & 7) == 0) && (((y + 4) & 7) == 0));
+        }
+        case 4u: { return ((x - y) & 3) == 0; }
+        case 5u: { return ((x + y) & 3) == 0; }
+        case 6u: { return (x & 1) != 0; }
+        case 7u: { return (y & 1) != 0; }
+        default: { return true; }
     }
 }
 
@@ -288,6 +326,8 @@ fn vs_stamp(@builtin(vertex_index) vertex_index: u32,
     out.local = c * 8.0;
     out.size_index = stamp.z;
     out.tone = stamp.w;
+    out.pattern = attrs.y;
+    out.doc = p;
     return out;
 }
 
@@ -300,6 +340,9 @@ fn fs_stamp(in: StampVertex) -> @location(0) vec4<f32> {
     }
     let bits = size_row_bits(u32(in.size_index + 0.5), iy);
     if ((bits >> (7u - ix)) & 1u) == 0u {
+        discard;
+    }
+    if (!pattern_on(u32(in.pattern + 0.5), i32(floor(in.doc.x)), i32(floor(in.doc.y)))) {
         discard;
     }
     return vec4<f32>(1.0 - clamp(in.tone, 0.0, 1.0), 0.0, 0.0, 1.0);

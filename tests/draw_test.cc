@@ -20,6 +20,7 @@ auto main() -> int {
     static_assert(sizeof(mira::Layer) == 24);
     static_assert(sizeof(mira::Tool) == 16);
     static_assert(sizeof(mira::Size) == 4);
+    static_assert(sizeof(mira::Pattern) == 4);
     static_assert(sizeof(mira::PaintStamp) == 32);
     static_assert(sizeof(mira::StrokeAction) == 28);
     static_assert(sizeof(mira::Document) == 8);
@@ -99,6 +100,7 @@ auto main() -> int {
     MIRA_TEST(packing.icons[0].tone == mira::tone_value(mira::Tone::kBlack));
     MIRA_TEST(mira::sizeicon(7) == mira::Icon::kSize8);
     MIRA_TEST(mira::brushicon(7) == mira::Icon::kBrushSize8);
+    MIRA_TEST(mira::patternicon(7) == mira::Icon::kPatternHorizontal);
     MIRA_TEST(
         mira::add_icon(&packing, mira::Icon::kBrushSize8, 9.0F, 10.0F, mira::Tone::kBlack, 0.25F));
     MIRA_TEST(packing.icons[1].scale == 0.25F);
@@ -117,6 +119,9 @@ auto main() -> int {
     MIRA_TEST(gui.sizes.size() == 8);
     MIRA_TEST(gui.sizes[3].selected == 1);
     MIRA_TEST(mira::sizecur(gui) == &gui.sizes[3]);
+    MIRA_TEST(gui.patterns.size() == 8);
+    MIRA_TEST(gui.patterns[0].selected == 1);
+    MIRA_TEST(mira::patterncur(gui) == &gui.patterns[0]);
     MIRA_TEST(gui.document.width == 320);
     MIRA_TEST(gui.document.height == 240);
     MIRA_TEST(gui.layers.size() == 2);
@@ -144,17 +149,17 @@ auto main() -> int {
     MIRA_TEST(gui.layout.menu_bar.width == 560.0F);
     MIRA_TEST(gui.layout.menu_bar.height == 18.0F);
     MIRA_TEST(gui.layout.toolbar.x == 0.0F);
-    MIRA_TEST(gui.layout.toolbar.width == 56.0F);
+    MIRA_TEST(gui.layout.toolbar.width == 84.0F);
     MIRA_TEST(gui.layout.layers.x == 420.0F);
     MIRA_TEST(gui.layout.layers.width == 140.0F);
-    MIRA_TEST(gui.layout.viewport.x == 56.0F);
+    MIRA_TEST(gui.layout.viewport.x == 84.0F);
     MIRA_TEST(gui.layout.viewport.y == 18.0F);
-    MIRA_TEST(gui.layout.viewport.width == 364.0F);
-    MIRA_TEST(gui.layout.document.x == 78.0F);
+    MIRA_TEST(gui.layout.viewport.width == 336.0F);
+    MIRA_TEST(gui.layout.document.x == 92.0F);
     MIRA_TEST(gui.layout.document.y == 69.0F);
     MIRA_TEST(gui.layout.document.width == 320.0F);
     MIRA_TEST(gui.layout.document.height == 240.0F);
-    MIRA_TEST(close(gui.view.x, -22.0F));
+    MIRA_TEST(close(gui.view.x, -8.0F));
     MIRA_TEST(close(gui.view.y, -51.0F));
 
     mira::GuiState nav_gui;
@@ -168,14 +173,14 @@ auto main() -> int {
     wheel_down.y = nav_y;
     wheel_down.dy = 24;
     mira::guievent(&nav_gui, {&wheel_down, 1});
-    MIRA_TEST(close(nav_gui.view.x, -22.0F));
+    MIRA_TEST(close(nav_gui.view.x, -8.0F));
     MIRA_TEST(close(nav_gui.view.y, -27.0F));
 
     mira::InputEvent wheel_side = wheel_down;
     wheel_side.mods = mira::kInputShift;
     wheel_side.dy = 16;
     mira::guievent(&nav_gui, {&wheel_side, 1});
-    MIRA_TEST(close(nav_gui.view.x, -6.0F));
+    MIRA_TEST(close(nav_gui.view.x, 8.0F));
     MIRA_TEST(close(nav_gui.view.y, -27.0F));
 
     const mira::f32 document_x_before =
@@ -293,7 +298,13 @@ auto main() -> int {
                      static_cast<mira::i32>(gui.layout.sizes.y + 1.0F));
     MIRA_TEST(size_hit.kind == mira::HitKind::kSize);
     MIRA_TEST(size_hit.index == 0);
-    const mira::HitRecord viewport_hit = mira::guihit(gui, 80, 40);
+    const mira::HitRecord pattern_hit =
+        mira::guihit(gui, static_cast<mira::i32>(gui.layout.patterns.x + 1.0F),
+                     static_cast<mira::i32>(gui.layout.patterns.y + 1.0F));
+    MIRA_TEST(pattern_hit.kind == mira::HitKind::kPattern);
+    MIRA_TEST(pattern_hit.index == 0);
+    const mira::HitRecord viewport_hit =
+        mira::guihit(gui, static_cast<mira::i32>(gui.layout.viewport.x + 24.0F), 40);
     MIRA_TEST(viewport_hit.kind == mira::HitKind::kViewport);
     const mira::HitRecord visibility_hit =
         mira::guihit(gui, static_cast<mira::i32>(gui.layout.layerrows.x + 7.0F),
@@ -377,11 +388,11 @@ auto main() -> int {
     mira::guiframe(&gui, normal, {}, &list);
     MIRA_TEST(list.rects.size() >= 5);
     MIRA_TEST(list.glyphs.size() > 0);
-    MIRA_TEST(list.icons.size() == 18);
+    MIRA_TEST(list.icons.size() == 26);
     MIRA_TEST(list.upload_bytes() ==
               list.rects.byte_size() + list.glyphs.byte_size() + list.icons.byte_size());
     MIRA_TEST(list.overflow_count() == 0);
-    MIRA_TEST(list.rects.size() <= 72);
+    MIRA_TEST(list.rects.size() <= 76);
     MIRA_TEST(list.glyphs.size() <= 64);
 
     mira::InputEvent select_size = {};
@@ -392,6 +403,15 @@ auto main() -> int {
     MIRA_TEST(gui.cursize == 6);
     MIRA_TEST(gui.sizes[6].selected == 1);
     MIRA_TEST(gui.sizes[3].selected == 0);
+
+    mira::InputEvent select_pattern = {};
+    select_pattern.kind = mira::InputKind::kMouseDown;
+    select_pattern.x = static_cast<mira::i32>(gui.layout.patterns.x + 8.0F);
+    select_pattern.y = static_cast<mira::i32>(gui.layout.patterns.y + 52.0F);
+    mira::guievent(&gui, {&select_pattern, 1});
+    MIRA_TEST(gui.curpattern == 2);
+    MIRA_TEST(gui.patterns[2].selected == 1);
+    MIRA_TEST(gui.patterns[0].selected == 0);
 
     mira::InputEvent select_brush = {};
     select_brush.kind = mira::InputKind::kMouseDown;
@@ -451,6 +471,7 @@ auto main() -> int {
     MIRA_TEST(close(gui.paint_stamps[0].tone,
                     static_cast<mira::f32>(mira::tone_value(mira::Tone::kBlack))));
     MIRA_TEST(close(gui.paint_stamps[0].layer, 0.0F));
+    MIRA_TEST(close(gui.paint_stamps[0].pattern, 2.0F));
     MIRA_TEST(gui.strokes.size() == 1);
     MIRA_TEST(gui.stroke_cursor == 1);
     MIRA_TEST(gui.stroke_stamps.size() == 11);
@@ -474,6 +495,7 @@ auto main() -> int {
     MIRA_TEST(gui.stroke_cursor == 1);
     MIRA_TEST(gui.clear_slots.size() == 1);
     MIRA_TEST(gui.paint_stamps.size() == 11);
+    MIRA_TEST(close(gui.paint_stamps[0].pattern, 2.0F));
 
     mira::GuiState zoom_paint_gui;
     mira::guiinit(&zoom_paint_gui);
@@ -512,7 +534,7 @@ auto main() -> int {
     mira::DrawList paint_list;
     mira::guiframe(&gui, normal, {}, &paint_list);
     MIRA_TEST(gui.paint_stamps.empty());
-    MIRA_TEST(paint_list.icons.size() >= 18);
+    MIRA_TEST(paint_list.icons.size() >= 26);
 
     mira::DrawList tiny_list;
     mira::GuiState tiny_gui;

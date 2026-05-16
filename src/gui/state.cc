@@ -7,6 +7,7 @@ void guiinit(GuiState *state) {
     state->layers.clear();
     state->tools.clear();
     state->sizes.clear();
+    state->patterns.clear();
     state->paint_stamps.clear();
     state->strokes.clear();
     state->stroke_stamps.clear();
@@ -21,6 +22,7 @@ void guiinit(GuiState *state) {
     state->curlayer = 0;
     state->curtool = 0;
     state->cursize = 3;
+    state->curpattern = 0;
     state->active_menu = kNoMenu;
     state->renaming_layer = kNoLayer;
     state->next_layer_id = 1;
@@ -54,6 +56,9 @@ void guiinit(GuiState *state) {
     impl::pushtool(state, 7, "erase", ToolKind::kErase, false);
     for (u8 index = 0; index < 8; ++index) {
         impl::pushsize(state, index, index == state->cursize);
+    }
+    for (u8 index = 0; index < 8; ++index) {
+        impl::pushpattern(state, index, index == state->curpattern);
     }
 
     impl::pushlayer(state, state->next_layer_id, "ink", LayerKind::kInk, 255, true, false, true, 0,

@@ -248,6 +248,13 @@ inline void pushsize(GuiState *state, u8 index, b8 selected) {
     });
 }
 
+inline void pushpattern(GuiState *state, u8 index, b8 selected) {
+    (void)state->patterns.push({
+        .index = index,
+        .selected = static_cast<u8>(selected ? 1U : 0U),
+    });
+}
+
 inline void select_layer(GuiState *state, u8 index) {
     if (index >= state->layers.size()) {
         return;
@@ -275,6 +282,16 @@ inline void select_size(GuiState *state, u8 index) {
     state->cursize = index;
     for (usize size_index = 0; size_index < state->sizes.size(); ++size_index) {
         state->sizes[size_index].selected = size_index == index ? 1U : 0U;
+    }
+}
+
+inline void select_pattern(GuiState *state, u8 index) {
+    if (index >= state->patterns.size()) {
+        return;
+    }
+    state->curpattern = index;
+    for (usize pattern_index = 0; pattern_index < state->patterns.size(); ++pattern_index) {
+        state->patterns[pattern_index].selected = pattern_index == index ? 1U : 0U;
     }
 }
 

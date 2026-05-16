@@ -13,6 +13,7 @@ namespace mira {
 constexpr usize kMaxLayers = 16;
 constexpr usize kMaxTools = 8;
 constexpr usize kMaxSizes = 8;
+constexpr usize kMaxPatterns = 8;
 constexpr usize kMaxPaintStamps = 32768;
 constexpr usize kMaxStrokeActions = 1024;
 constexpr usize kMaxHistoryStamps = 32768;
@@ -71,13 +72,20 @@ struct Size {
 };
 static_assert(sizeof(Size) == 4);
 
+struct Pattern {
+    u8 index = 0;
+    u8 selected = 0;
+    u16 _pad = 0;
+};
+static_assert(sizeof(Pattern) == 4);
+
 struct PaintStamp {
     f32 x = 0.0F;
     f32 y = 0.0F;
     f32 size = 0.0F;
     f32 tone = 0.0F;
     f32 layer = 0.0F;
-    f32 _pad0 = 0.0F;
+    f32 pattern = 0.0F;
     f32 _pad1 = 0.0F;
     f32 _pad2 = 0.0F;
 };
@@ -133,6 +141,7 @@ enum class HitKind : u8 {
     kMenu,
     kTool,
     kSize,
+    kPattern,
     kLayerRow,
     kLayerVisibility,
     kLayerLock,
@@ -180,6 +189,7 @@ struct GuiLayout {
     Rect toolbar;
     Rect tools;
     Rect sizes;
+    Rect patterns;
     Rect viewport;
     Rect document;
     Rect layers;
@@ -190,6 +200,7 @@ struct GuiState {
     Table<Layer, kMaxLayers> layers;
     Table<Tool, kMaxTools> tools;
     Table<Size, kMaxSizes> sizes;
+    Table<Pattern, kMaxPatterns> patterns;
     Table<PaintStamp, kMaxPaintStamps> paint_stamps;
     Table<StrokeAction, kMaxStrokeActions> strokes;
     Table<PaintStamp, kMaxHistoryStamps> stroke_stamps;
@@ -207,6 +218,7 @@ struct GuiState {
     u8 curlayer = 0;
     u8 curtool = 0;
     u8 cursize = 3;
+    u8 curpattern = 0;
     u8 active_menu = kNoMenu;
     u8 renaming_layer = kNoLayer;
     u32 next_layer_id = 1;
@@ -235,8 +247,10 @@ struct GuiState {
 [[nodiscard]] b8 layerlocked(const Layer &layer);
 [[nodiscard]] b8 layerselected(const Layer &layer);
 [[nodiscard]] const Size *sizecur(const GuiState &state);
+[[nodiscard]] const Pattern *patterncur(const GuiState &state);
 [[nodiscard]] Icon sizeicon(u8 index);
 [[nodiscard]] Icon brushicon(u8 index);
+[[nodiscard]] Icon patternicon(u8 index);
 void guiinit(GuiState *state);
 void docnew(GuiState *state, i32 width = 320, i32 height = 240);
 void guilayout(GuiState *state, Screen screen);
