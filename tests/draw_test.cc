@@ -602,6 +602,43 @@ auto main() -> int {
                      static_cast<mira::i32>(reactive_gui.layout.brush_panel.x + 50.0F),
                      static_cast<mira::i32>(reactive_gui.layout.brush_panel.y + 70.0F));
     MIRA_TEST(coverage_hit.kind == mira::HitKind::kCoverage);
+    const mira::HitRecord brush_title_hit =
+        mira::guihit(reactive_gui,
+                     static_cast<mira::i32>(reactive_gui.layout.brush_panel.x + 8.0F),
+                     static_cast<mira::i32>(reactive_gui.layout.brush_panel.y + 5.0F));
+    MIRA_TEST(brush_title_hit.kind == mira::HitKind::kBrushTitle);
+    const mira::HitRecord brush_close_hit =
+        mira::guihit(reactive_gui,
+                     static_cast<mira::i32>(reactive_gui.layout.brush_panel.x +
+                                            reactive_gui.layout.brush_panel.width - 10.0F),
+                     static_cast<mira::i32>(reactive_gui.layout.brush_panel.y + 8.0F));
+    MIRA_TEST(brush_close_hit.kind == mira::HitKind::kBrushClose);
+    const mira::f32 brush_x_before = reactive_gui.layout.brush_panel.x;
+    const mira::f32 brush_y_before = reactive_gui.layout.brush_panel.y;
+    mira::InputEvent drag_brush_down = {};
+    drag_brush_down.kind = mira::InputKind::kMouseDown;
+    drag_brush_down.x = static_cast<mira::i32>(brush_x_before + 8.0F);
+    drag_brush_down.y = static_cast<mira::i32>(brush_y_before + 5.0F);
+    mira::guievent(&reactive_gui, {&drag_brush_down, 1});
+    MIRA_TEST(reactive_gui.moving_brush);
+    mira::InputEvent drag_brush_move = {};
+    drag_brush_move.kind = mira::InputKind::kMouseMove;
+    drag_brush_move.buttons = 1;
+    drag_brush_move.x = static_cast<mira::i32>(brush_x_before + 32.0F);
+    drag_brush_move.y = static_cast<mira::i32>(brush_y_before + 17.0F);
+    mira::guievent(&reactive_gui, {&drag_brush_move, 1});
+    MIRA_TEST(close(reactive_gui.brush_x, brush_x_before + 24.0F));
+    MIRA_TEST(close(reactive_gui.brush_y, brush_y_before + 12.0F));
+    mira::InputEvent drag_brush_up = drag_brush_move;
+    drag_brush_up.kind = mira::InputKind::kMouseUp;
+    mira::guievent(&reactive_gui, {&drag_brush_up, 1});
+    MIRA_TEST(!reactive_gui.moving_brush);
+    mira::InputEvent outside_brush = {};
+    outside_brush.kind = mira::InputKind::kMouseDown;
+    outside_brush.x = static_cast<mira::i32>(reactive_gui.layout.layers.x + 8.0F);
+    outside_brush.y = static_cast<mira::i32>(reactive_gui.layout.layers.y + 8.0F);
+    mira::guievent(&reactive_gui, {&outside_brush, 1});
+    MIRA_TEST(reactive_gui.brush_open);
 
     mira::InputEvent reactive_magic = reactive_brush;
     reactive_magic.y = static_cast<mira::i32>(reactive_gui.layout.tools.y + 76.0F);

@@ -121,14 +121,42 @@ constexpr f32 kTipRowHeight = 24.0F;
     return rect;
 }
 
+[[nodiscard]] f32 brushheight(const GuiState &state) {
+    return tiptool(toolkind(state)) ? kBrushPanelHeight : kCoveragePanelHeight;
+}
+
+void placebrush(GuiState *state) {
+    if (!state->brush_placed) {
+        state->brush_x = state->layout.layers.x - kBrushPanelWidth - 10.0F;
+        state->brush_y = state->layout.menu_bar.y + state->layout.menu_bar.height + 10.0F;
+        state->brush_placed = true;
+    }
+}
+
+void clampbrush(GuiState *state, f32 height) {
+    state->brush_x = std::clamp(state->brush_x, 0.0F,
+                                std::max(0.0F, state->layout.window.width - kBrushPanelWidth));
+    state->brush_y = std::clamp(state->brush_y, 0.0F,
+                                std::max(0.0F, state->layout.window.height - height));
+}
+
 [[nodiscard]] Rect brushpanel(const GuiState &state) {
-    const f32 height = tiptool(toolkind(state)) ? kBrushPanelHeight : kCoveragePanelHeight;
-    const f32 x = std::clamp(state.layout.brush_button.x + state.layout.brush_button.width + 8.0F,
-                             0.0F,
-                             std::max(0.0F, state.layout.window.width - kBrushPanelWidth));
-    const f32 y = std::clamp(state.layout.brush_button.y - 2.0F, 0.0F,
-                             std::max(0.0F, state.layout.window.height - height));
-    return {.x = x, .y = y, .width = kBrushPanelWidth, .height = height};
+    return {.x = state.brush_x, .y = state.brush_y, .width = kBrushPanelWidth,
+            .height = brushheight(state)};
+}
+
+[[nodiscard]] Rect brushtitle(const GuiState &state) {
+    return {.x = state.layout.brush_panel.x + 1.0F,
+            .y = state.layout.brush_panel.y + 1.0F,
+            .width = std::max(1.0F, state.layout.brush_panel.width - 2.0F),
+            .height = kBrushHeaderHeight};
+}
+
+[[nodiscard]] Rect brushclose(const GuiState &state) {
+    return {.x = state.layout.brush_panel.x + state.layout.brush_panel.width - 15.0F,
+            .y = state.layout.brush_panel.y + 4.0F,
+            .width = 9.0F,
+            .height = 9.0F};
 }
 
 [[nodiscard]] f32 coveragelabely(ToolKind kind) {
@@ -175,12 +203,17 @@ constexpr f32 kTipRowHeight = 24.0F;
     return state.brush_open || state.brush_t > 0.0F;
 }
 
-void closebrush(GuiState *state) { state->brush_open = false; }
+void closebrush(GuiState *state) {
+    state->brush_open = false;
+    state->moving_brush = false;
+}
 
 void openbrush(GuiState *state) {
     layerdone(state);
     state->active_menu = kNoMenu;
     state->context_open = false;
+    placebrush(state);
+    clampbrush(state, brushheight(*state));
     state->brush_open = !state->brush_open;
 }
 
@@ -319,6 +352,8 @@ void toollayout(GuiState *state) {
     }
     if (coveragetool(kind)) {
         state->layout.brush_button = brushbutton(*state, kind);
+        placebrush(state);
+        clampbrush(state, brushheight(*state));
         state->layout.brush_panel = brushpanel(*state);
     } else {
         state->layout.brush_button = {};
@@ -353,6 +388,8 @@ void toollayout(GuiState *state) {
 
     if (state->brush_open && coveragetool(kind)) {
         addhit(state, state->layout.brush_panel, HitKind::kBrushPanel, 0, 130);
+        addhit(state, brushtitle(*state), HitKind::kBrushTitle, 0, 180);
+        addhit(state, brushclose(*state), HitKind::kBrushClose, 0, 190);
         if (sizetool(kind)) {
             for (usize index = 0; index < state->sizes.size(); ++index) {
                 addhit(state, panelsizehit(*state, static_cast<u8>(index)), HitKind::kSize,
@@ -397,25 +434,11 @@ b8 toolkey(GuiState *state, Key key) {
     return true;
 }
 
-b8 toolmodalmouse(GuiState *state, HitRecord hit) {
-    if (!state->brush_open) {
-        return false;
-    }
-    if (hit.kind == HitKind::kBrushButton || hit.kind == HitKind::kBrushPanel ||
-        hit.kind == HitKind::kCoverage || hit.kind == HitKind::kTool ||
-        hit.kind == HitKind::kTip || hit.kind == HitKind::kSize) {
-        return false;
-    }
-    closebrush(state);
-    return true;
-}
-
 b8 toolmouse(GuiState *state, HitRecord hit) {
     const ToolKind kind = toolkind(*state);
     if (hit.kind == HitKind::kTool) {
         layerdone(state);
         state->active_menu = kNoMenu;
-        closebrush(state);
         select_tool(state, hit.index);
         return true;
     }
@@ -423,9 +446,6 @@ b8 toolmouse(GuiState *state, HitRecord hit) {
         layerdone(state);
         state->active_menu = kNoMenu;
         select_tip(state, hit.index);
-        if (!containsrect(state->layout.brush_panel, hit.rect)) {
-            closebrush(state);
-        }
         return true;
     }
     if (hit.kind == HitKind::kSize && sizetool(kind)) {
@@ -436,6 +456,18 @@ b8 toolmouse(GuiState *state, HitRecord hit) {
     }
     if (hit.kind == HitKind::kBrushButton && coveragetool(kind)) {
         openbrush(state);
+        return true;
+    }
+    if (hit.kind == HitKind::kBrushClose && state->brush_open) {
+        closebrush(state);
+        return true;
+    }
+    if (hit.kind == HitKind::kBrushTitle && state->brush_open) {
+        state->moving_brush = true;
+        state->brush_drag_x =
+            static_cast<i16>(state->mouse_x - static_cast<i32>(state->layout.brush_panel.x));
+        state->brush_drag_y =
+            static_cast<i16>(state->mouse_y - static_cast<i32>(state->layout.brush_panel.y));
         return true;
     }
     if (hit.kind == HitKind::kBrushPanel && state->brush_open) {
@@ -449,6 +481,21 @@ b8 toolmouse(GuiState *state, HitRecord hit) {
     }
     return false;
 }
+
+void toolmove(GuiState *state, i32 x, i32 y, u8 buttons) {
+    if (!state->moving_brush) {
+        return;
+    }
+    if ((buttons & 1U) == 0) {
+        state->moving_brush = false;
+        return;
+    }
+    state->brush_x = static_cast<f32>(x - state->brush_drag_x);
+    state->brush_y = static_cast<f32>(y - state->brush_drag_y);
+    clampbrush(state, brushheight(*state));
+}
+
+void toolup(GuiState *state) { state->moving_brush = false; }
 
 void tooldraw(const GuiState &state, DrawList *draws) {
     const ToolKind kind = toolkind(state);
@@ -541,25 +588,23 @@ void toolpopupdraw(const GuiState &state, DrawList *draws) {
 
     drawplane(draws, DrawPlane::kMenu);
     const f32 t = smooth(state.brush_t);
-    const Rect panel = {
-        .x = state.layout.brush_panel.x,
-        .y = state.layout.brush_panel.y,
-        .width = 18.0F + ((state.layout.brush_panel.width - 18.0F) * t),
-        .height = 18.0F + ((state.layout.brush_panel.height - 18.0F) * t),
-    };
+    const Rect panel = state.layout.brush_panel;
     drawrect(draws,
              {.x = panel.x + 2.0F, .y = panel.y + 2.0F, .width = panel.width, .height = panel.height},
              Tone::kMid);
     drawrect(draws, panel, Tone::kWhite);
-    drawrect(draws,
-             {.x = panel.x + 1.0F,
-              .y = panel.y + 1.0F,
-              .width = std::max(1.0F, panel.width - 2.0F),
-              .height = kBrushHeaderHeight},
-             Tone::kBlack);
+    drawrect(draws, brushtitle(state), Tone::kBlack);
     drawstroke(draws, panel, Tone::kBlack);
     if (state.brush_t > 0.18F) {
         drawtext(draws, "brush", panel.x + 5.0F, panel.y + 4.0F, Tone::kWhite);
+        const Rect close = brushclose(state);
+        drawrect(draws, close,
+                 state.hot_kind == HitKind::kBrushClose ? Tone::kLight : Tone::kWhite);
+        drawstroke(draws, close, Tone::kWhite);
+        drawrect(draws, {.x = close.x + 2.0F, .y = close.y + 4.0F, .width = 5.0F, .height = 1.0F},
+                 Tone::kBlack);
+        drawrect(draws, {.x = close.x + 4.0F, .y = close.y + 2.0F, .width = 1.0F, .height = 5.0F},
+                 Tone::kBlack);
     }
     if (state.brush_t > 0.32F && sizetool(kind)) {
         drawtext(draws, "size", panel.x + 6.0F, panel.y + 22.0F, Tone::kBlack);

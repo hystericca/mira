@@ -136,6 +136,8 @@ enum class HitKind : u8 {
     kSize,
     kBrushButton,
     kBrushPanel,
+    kBrushTitle,
+    kBrushClose,
     kCoverage,
     kLayerRow,
     kLayerVisibility,
@@ -264,8 +266,12 @@ struct GuiState {
     f32 last_paint_x = 0.0F;
     f32 last_paint_y = 0.0F;
     f32 brush_t = 0.0F;
+    f32 brush_x = 0.0F;
+    f32 brush_y = 0.0F;
     i16 last_pan_x = 0;
     i16 last_pan_y = 0;
+    i16 brush_drag_x = 0;
+    i16 brush_drag_y = 0;
     b8 initialized = false;
     b8 view_initialized = false;
     b8 painting = false;
@@ -274,6 +280,8 @@ struct GuiState {
     b8 rename_replace = false;
     b8 context_open = false;
     b8 brush_open = false;
+    b8 brush_placed = false;
+    b8 moving_brush = false;
     b8 about_dialog = false;
     b8 new_dialog = false;
     b8 new_replace = false;

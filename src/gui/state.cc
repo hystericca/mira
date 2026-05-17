@@ -49,8 +49,12 @@ void guiinit(GuiState *state) {
     state->last_paint_x = 0.0F;
     state->last_paint_y = 0.0F;
     state->brush_t = 0.0F;
+    state->brush_x = 0.0F;
+    state->brush_y = 0.0F;
     state->last_pan_x = 0;
     state->last_pan_y = 0;
+    state->brush_drag_x = 0;
+    state->brush_drag_y = 0;
     state->view.x = 0.0F;
     state->view.y = 0.0F;
     state->view.zoom = kInitialViewZoom;
@@ -61,6 +65,8 @@ void guiinit(GuiState *state) {
     state->rename_replace = false;
     state->context_open = false;
     state->brush_open = false;
+    state->brush_placed = false;
+    state->moving_brush = false;
     state->about_dialog = false;
     state->new_dialog = false;
     state->new_replace = false;

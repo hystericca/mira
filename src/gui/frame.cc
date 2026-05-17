@@ -137,10 +137,6 @@ void guievent(GuiState *state, std::span<const InputEvent> input) {
                 continue;
             }
 
-            if (impl::toolmodalmouse(state, hit)) {
-                continue;
-            }
-
             if (impl::workmouse(state, hit, event.x, event.y, event.button) ||
                 impl::menumouse(state, hit) || impl::layermouse(state, hit, event.x) ||
                 impl::toolmouse(state, hit)) {
@@ -150,10 +146,12 @@ void guievent(GuiState *state, std::span<const InputEvent> input) {
             impl::layerdone(state);
             state->active_menu = kNoMenu;
         } else if (event.kind == InputKind::kMouseMove) {
+            impl::toolmove(state, event.x, event.y, event.buttons);
             impl::workmove(state, event.x, event.y, event.buttons);
             impl::layermove(state, event.x);
         } else if (event.kind == InputKind::kMouseUp) {
             impl::workup(state, event.x, event.y);
+            impl::toolup(state);
             state->painting = false;
             state->panning = false;
             state->setting_opacity = false;

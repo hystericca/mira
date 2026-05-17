@@ -540,8 +540,9 @@ void toollayout(GuiState *state);
 void tooltick(GuiState *state);
 [[nodiscard]] b8 toolanimating(const GuiState &state);
 [[nodiscard]] b8 toolkey(GuiState *state, Key key);
-[[nodiscard]] b8 toolmodalmouse(GuiState *state, HitRecord hit);
 [[nodiscard]] b8 toolmouse(GuiState *state, HitRecord hit);
+void toolmove(GuiState *state, i32 x, i32 y, u8 buttons);
+void toolup(GuiState *state);
 void tooldraw(const GuiState &state, DrawList *draws);
 void toolpopupdraw(const GuiState &state, DrawList *draws);
 
