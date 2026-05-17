@@ -19,11 +19,11 @@ const Size *sizecur(const GuiState &state) {
     return &state.sizes[state.cursize];
 }
 
-const Texture *texturecur(const GuiState &state) {
-    if (state.curtexture >= state.textures.size()) {
+const Coverage *coveragecur(const GuiState &state) {
+    if (state.curcoverage >= state.coverages.size()) {
         return nullptr;
     }
-    return &state.textures[state.curtexture];
+    return &state.coverages[state.curcoverage];
 }
 
 const Tool *toolcur(const GuiState &state) {
@@ -77,28 +77,17 @@ Icon sizeicon(u8 index) {
     }
 }
 
-Icon brushicon(u8 index) { return tipicon(index); }
-
-Icon textureicon(u8 index) {
-    switch (index) {
-    case 1:
-        return Icon::kTextureA;
-    case 2:
-        return Icon::kTextureB;
-    case 3:
-        return Icon::kTextureC;
-    case 4:
-        return Icon::kTextureDiagR;
-    case 5:
-        return Icon::kTextureDiagL;
-    case 6:
-        return Icon::kTextureVertical;
-    case 7:
-        return Icon::kTextureHorizontal;
-    case 0:
-    default:
-        return Icon::kTextureFull;
+Icon coverageicon(u8 index) {
+    static constexpr std::array<Icon, kMaxCoverages> kIcons = {{
+        Icon::kCoverage16, Icon::kCoverage15, Icon::kCoverage14, Icon::kCoverage13,
+        Icon::kCoverage12, Icon::kCoverage11, Icon::kCoverage10, Icon::kCoverage9,
+        Icon::kCoverage8,  Icon::kCoverage7,  Icon::kCoverage6,  Icon::kCoverage5,
+        Icon::kCoverage4,  Icon::kCoverage3,  Icon::kCoverage2,  Icon::kCoverage1,
+    }};
+    if (index >= kIcons.size()) {
+        return Icon::kCoverage16;
     }
+    return kIcons[index];
 }
 
 } // namespace mira
@@ -107,11 +96,17 @@ namespace mira::gui {
 namespace {
 
 constexpr f32 kBrushPanelWidth = 166.0F;
-constexpr f32 kBrushPanelHeight = 272.0F;
+constexpr f32 kBrushPanelHeight = 312.0F;
+constexpr f32 kCoveragePanelHeight = 84.0F;
 constexpr f32 kBrushHeaderHeight = 17.0F;
-constexpr f32 kTextureStripY = 55.0F;
-constexpr f32 kTextureSlotHeight = 17.0F;
-constexpr f32 kTipRowY = 76.0F;
+constexpr usize kCoverageColumns = 8;
+constexpr f32 kCoverageLabelY = 52.0F;
+constexpr f32 kCoverageLabelYNoSize = 24.0F;
+constexpr f32 kCoverageStripY = 64.0F;
+constexpr f32 kCoverageStripYNoSize = 36.0F;
+constexpr f32 kCoverageSlotHeight = 15.0F;
+constexpr f32 kTipLabelY = 102.0F;
+constexpr f32 kTipRowY = 113.0F;
 constexpr f32 kTipRowHeight = 24.0F;
 
 [[nodiscard]] f32 smooth(f32 t) { return t * t * (3.0F - (2.0F * t)); }
@@ -127,13 +122,21 @@ constexpr f32 kTipRowHeight = 24.0F;
 }
 
 [[nodiscard]] Rect brushpanel(const GuiState &state) {
-    const f32 height = tiptool(toolkind(state)) ? kBrushPanelHeight : 84.0F;
+    const f32 height = tiptool(toolkind(state)) ? kBrushPanelHeight : kCoveragePanelHeight;
     const f32 x = std::clamp(state.layout.brush_button.x + state.layout.brush_button.width + 8.0F,
                              0.0F,
                              std::max(0.0F, state.layout.window.width - kBrushPanelWidth));
     const f32 y = std::clamp(state.layout.brush_button.y - 2.0F, 0.0F,
                              std::max(0.0F, state.layout.window.height - height));
     return {.x = x, .y = y, .width = kBrushPanelWidth, .height = height};
+}
+
+[[nodiscard]] f32 coveragelabely(ToolKind kind) {
+    return sizetool(kind) ? kCoverageLabelY : kCoverageLabelYNoSize;
+}
+
+[[nodiscard]] f32 coveragestripy(ToolKind kind) {
+    return sizetool(kind) ? kCoverageStripY : kCoverageStripYNoSize;
 }
 
 [[nodiscard]] Rect tiprow(const GuiState &state, u8 index) {
@@ -155,13 +158,16 @@ constexpr f32 kTipRowHeight = 24.0F;
     };
 }
 
-[[nodiscard]] Rect texturehit(const GuiState &state, u8 index) {
-    const f32 slot = (state.layout.brush_panel.width - 14.0F) / 8.0F;
+[[nodiscard]] Rect coveragehit(const GuiState &state, u8 index) {
+    const f32 slot = (state.layout.brush_panel.width - 14.0F) / static_cast<f32>(kCoverageColumns);
+    const usize column = static_cast<usize>(index) % kCoverageColumns;
+    const usize row = static_cast<usize>(index) / kCoverageColumns;
     return {
-        .x = state.layout.brush_panel.x + 7.0F + (static_cast<f32>(index) * slot),
-        .y = state.layout.brush_panel.y + kTextureStripY,
+        .x = state.layout.brush_panel.x + 7.0F + (static_cast<f32>(column) * slot),
+        .y = state.layout.brush_panel.y + coveragestripy(toolkind(state)) +
+             (static_cast<f32>(row) * (kCoverageSlotHeight + 2.0F)),
         .width = slot,
-        .height = kTextureSlotHeight,
+        .height = kCoverageSlotHeight,
     };
 }
 
@@ -264,8 +270,8 @@ void drawscatterstroke(DrawList *draws, Rect row, Tone ink) {
     }
 }
 
-void drawtippreview(DrawList *draws, Rect row, u8 tip, u8 size, u8 texture, Tone ink) {
-    if (texture != 0) {
+void drawtippreview(DrawList *draws, Rect row, u8 tip, u8 size, u8 coverage, Tone ink) {
+    if (coverage != 0) {
         drawrect(draws,
                  {.x = row.x + 47.0F,
                   .y = row.y + 7.0F,
@@ -308,10 +314,10 @@ void drawtippreview(DrawList *draws, Rect row, u8 tip, u8 size, u8 texture, Tone
 void toollayout(GuiState *state) {
     addhit(state, state->layout.toolbar, HitKind::kToolbar, 0, 20);
     const ToolKind kind = toolkind(*state);
-    if (!texturetool(kind)) {
+    if (!coveragetool(kind)) {
         closebrush(state);
     }
-    if (texturetool(kind)) {
+    if (coveragetool(kind)) {
         state->layout.brush_button = brushbutton(*state, kind);
         state->layout.brush_panel = brushpanel(*state);
     } else {
@@ -341,11 +347,11 @@ void toollayout(GuiState *state) {
         }
     }
 
-    if (texturetool(kind)) {
+    if (coveragetool(kind)) {
         addhit(state, state->layout.brush_button, HitKind::kBrushButton, 0, 88);
     }
 
-    if (state->brush_open && texturetool(kind)) {
+    if (state->brush_open && coveragetool(kind)) {
         addhit(state, state->layout.brush_panel, HitKind::kBrushPanel, 0, 130);
         if (sizetool(kind)) {
             for (usize index = 0; index < state->sizes.size(); ++index) {
@@ -353,8 +359,8 @@ void toollayout(GuiState *state) {
                        static_cast<u8>(index), 175);
             }
         }
-        for (usize index = 0; index < state->textures.size(); ++index) {
-            addhit(state, texturehit(*state, static_cast<u8>(index)), HitKind::kTexture,
+        for (usize index = 0; index < state->coverages.size(); ++index) {
+            addhit(state, coveragehit(*state, static_cast<u8>(index)), HitKind::kCoverage,
                    static_cast<u8>(index), 170);
         }
         if (tiptool(kind)) {
@@ -367,7 +373,7 @@ void toollayout(GuiState *state) {
 }
 
 void tooltick(GuiState *state) {
-    if (!texturetool(toolkind(*state))) {
+    if (!coveragetool(toolkind(*state))) {
         closebrush(state);
     }
     const f32 target = state->brush_open ? 1.0F : 0.0F;
@@ -396,7 +402,7 @@ b8 toolmodalmouse(GuiState *state, HitRecord hit) {
         return false;
     }
     if (hit.kind == HitKind::kBrushButton || hit.kind == HitKind::kBrushPanel ||
-        hit.kind == HitKind::kTexture || hit.kind == HitKind::kTool ||
+        hit.kind == HitKind::kCoverage || hit.kind == HitKind::kTool ||
         hit.kind == HitKind::kTip || hit.kind == HitKind::kSize) {
         return false;
     }
@@ -428,17 +434,17 @@ b8 toolmouse(GuiState *state, HitRecord hit) {
         select_size(state, hit.index);
         return true;
     }
-    if (hit.kind == HitKind::kBrushButton && texturetool(kind)) {
+    if (hit.kind == HitKind::kBrushButton && coveragetool(kind)) {
         openbrush(state);
         return true;
     }
     if (hit.kind == HitKind::kBrushPanel && state->brush_open) {
         return true;
     }
-    if (hit.kind == HitKind::kTexture && texturetool(kind)) {
+    if (hit.kind == HitKind::kCoverage && coveragetool(kind)) {
         layerdone(state);
         state->active_menu = kNoMenu;
-        select_texture(state, hit.index);
+        select_coverage(state, hit.index);
         return true;
     }
     return false;
@@ -447,11 +453,11 @@ b8 toolmouse(GuiState *state, HitRecord hit) {
 void tooldraw(const GuiState &state, DrawList *draws) {
     const ToolKind kind = toolkind(state);
     const b8 show_tips = tiptool(kind);
-    const b8 show_brush = texturetool(kind);
+    const b8 show_coverage = coveragetool(kind);
 
     drawrect(draws, state.layout.toolbar, Tone::kWhite);
     drawstroke(draws, state.layout.toolbar, Tone::kBlack);
-    if (show_tips || show_brush) {
+    if (show_tips || show_coverage) {
         drawrect(draws,
                  {.x = state.layout.tips.x - 3.0F,
                   .y = state.layout.toolbar.y,
@@ -459,7 +465,7 @@ void tooldraw(const GuiState &state, DrawList *draws) {
                   .height = state.layout.toolbar.height},
                  Tone::kBlack);
     }
-    if (show_tips && show_brush) {
+    if (show_tips && show_coverage) {
         drawrect(draws,
                  {.x = state.layout.brush_button.x - 3.0F,
                   .y = state.layout.toolbar.y,
@@ -510,7 +516,7 @@ void tooldraw(const GuiState &state, DrawList *draws) {
         }
     }
 
-    if (show_brush) {
+    if (show_coverage) {
         const b8 hot = state.hot_kind == HitKind::kBrushButton;
         const b8 active = brushvisible(state);
         if (hot || active) {
@@ -519,9 +525,9 @@ void tooldraw(const GuiState &state, DrawList *draws) {
                 drawstroke(draws, state.layout.brush_button, Tone::kBlack);
             }
         }
-        const Texture *texture = texturecur(state);
-        const u8 index = texture == nullptr ? 0 : texture->index;
-        drawicon(draws, textureicon(index), state.layout.brush_button.x + 4.0F,
+        const Coverage *coverage = coveragecur(state);
+        const u8 index = coverage == nullptr ? 0 : coverage->index;
+        drawicon(draws, coverageicon(index), state.layout.brush_button.x + 4.0F,
                  state.layout.brush_button.y + 4.0F, active ? Tone::kWhite : Tone::kBlack,
                  1.5F);
     }
@@ -529,7 +535,7 @@ void tooldraw(const GuiState &state, DrawList *draws) {
 
 void toolpopupdraw(const GuiState &state, DrawList *draws) {
     const ToolKind kind = toolkind(state);
-    if (!brushvisible(state) || !texturetool(kind)) {
+    if (!brushvisible(state) || !coveragetool(kind)) {
         return;
     }
 
@@ -579,26 +585,33 @@ void toolpopupdraw(const GuiState &state, DrawList *draws) {
                  Tone::kBlack);
     }
 
+    if (state.brush_t > 0.34F) {
+        drawtext(draws, "coverage", panel.x + 6.0F, panel.y + coveragelabely(kind), Tone::kBlack);
+    }
+
     if (state.brush_t > 0.36F) {
-        for (usize index = 0; index < state.textures.size(); ++index) {
-            const Texture &texture = state.textures[index];
-            Rect hit = texturehit(state, static_cast<u8>(index));
+        for (usize index = 0; index < state.coverages.size(); ++index) {
+            const Coverage &coverage = state.coverages[index];
+            Rect hit = coveragehit(state, static_cast<u8>(index));
             hit.y -= (1.0F - t) * 4.0F;
-            const b8 hot = state.hot_kind == HitKind::kTexture && state.hot_index == index;
-            const b8 selected = texture.selected != 0;
+            const b8 hot = state.hot_kind == HitKind::kCoverage && state.hot_index == index;
+            const b8 selected = coverage.selected != 0;
             if (hot || selected) {
                 drawrect(draws, hit, selected ? Tone::kBlack : Tone::kLight);
                 if (hot && !selected) {
                     drawstroke(draws, hit, Tone::kBlack);
                 }
             }
-            drawicon(draws, textureicon(texture.index), hit.x + 3.0F, hit.y + 3.0F,
+            drawicon(draws, coverageicon(coverage.index), hit.x + 3.0F, hit.y + 3.0F,
                      selected ? Tone::kWhite : Tone::kBlack, 1.25F);
         }
     }
 
     if (!tiptool(kind)) {
         return;
+    }
+    if (state.brush_t > 0.40F) {
+        drawtext(draws, "tip", panel.x + 6.0F, panel.y + kTipLabelY, Tone::kBlack);
     }
     for (usize index = 0; index < state.tips.size(); ++index) {
         const f32 threshold = 0.28F + (static_cast<f32>(index) * 0.045F);
@@ -620,7 +633,7 @@ void toolpopupdraw(const GuiState &state, DrawList *draws) {
                    Tone::kMid);
         const Tone ink = selected ? Tone::kWhite : Tone::kBlack;
         drawtipstamp(draws, tip.index, row.x + 16.0F, row.y + (row.height * 0.5F), ink, 1.25F);
-        drawtippreview(draws, row, tip.index, state.cursize, state.curtexture, ink);
+        drawtippreview(draws, row, tip.index, state.cursize, state.curcoverage, ink);
     }
 }
 

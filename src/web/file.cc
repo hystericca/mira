@@ -53,13 +53,23 @@ EM_JS(void, mira_open_image_picker, (int doc_width, int doc_height), {
             const y = Math.floor((targetH - h) * 0.5);
             ctx.drawImage(bitmap, x, y, w, h);
             const rgba = ctx.getImageData(0, 0, targetW, targetH).data;
+            const bayer = [
+                0, 8, 2, 10,
+                12, 4, 14, 6,
+                3, 11, 1, 9,
+                15, 7, 13, 5,
+            ];
             const pixels = new Uint8Array(targetW * targetH);
             for (let p = 0, r = 0; p < pixels.length; ++p, r += 4) {
                 const alpha = rgba[r + 3] / 255.0;
                 const luma =
                     ((rgba[r] * 0.299) + (rgba[r + 1] * 0.587) + (rgba[r + 2] * 0.114)) * alpha +
                     (255.0 * (1.0 - alpha));
-                pixels[p] = Math.max(0, Math.min(255, Math.round(luma)));
+                const px = p % targetW;
+                const py = Math.floor(p / targetW);
+                const rank = bayer[((py & 3) * 4) + (px & 3)];
+                const threshold = ((rank + 0.5) / 16.0) * 255.0;
+                pixels[p] = luma >= threshold ? 255 : 0;
             }
             const data = _malloc(pixels.length);
             HEAPU8.set(pixels, data);
@@ -113,6 +123,10 @@ EM_JS(void, mira_download_png, (int width, int height, const unsigned char *rgba
         }, 0);
     }, "image/png");
 });
+
+EM_JS(void, mira_export_failed, (), {
+    console.error("placeholder");
+});
 // clang-format on
 
 extern "C" EMSCRIPTEN_KEEPALIVE void mira_import_image_ready(int width, int height,
@@ -165,27 +179,90 @@ void Web::export_png() {
     const usize layer_count = gui_.layers.size();
     if (layer_count == 0 || device_ == nullptr || queue_ == nullptr || instance_ == nullptr ||
         layer_texture_ == nullptr) {
+        mira_export_failed();
         return;
     }
 
     const u32 bytes_per_row = align_to(document_width, 256U);
     const usize layer_bytes = static_cast<usize>(bytes_per_row) * document_height;
-    const usize read_size = layer_bytes * layer_count;
+    constexpr usize kNoReadSlot = std::numeric_limits<usize>::max();
+    std::array<usize, kMaxLayers> read_slot_by_layer = {};
+    read_slot_by_layer.fill(kNoReadSlot);
+    std::array<usize, kMaxLayers> read_layers = {};
+    usize read_count = 0;
+    for (usize index = 0; index < layer_count; ++index) {
+        const Layer &layer = gui_.layers[index];
+        if (!layervisible(layer) || layer.kind == LayerKind::kBackground) {
+            continue;
+        }
+        read_slot_by_layer[index] = read_count;
+        read_layers[read_count] = index;
+        ++read_count;
+    }
+
+    const auto compose = [&](const u8 *mapped) {
+        std::vector<u8> rgba(static_cast<usize>(document_width) * document_height * 4U);
+        for (u32 y = 0; y < document_height; ++y) {
+            for (u32 x = 0; x < document_width; ++x) {
+                f32 luma = 0.0F;
+                for (usize step = 0; step < layer_count; ++step) {
+                    const usize layer_index = layer_count - 1U - step;
+                    const Layer &layer = gui_.layers[layer_index];
+                    if (!layervisible(layer)) {
+                        continue;
+                    }
+                    const f32 opacity = static_cast<f32>(layer.opacity_u8) / 255.0F;
+                    if (layer.kind == LayerKind::kBackground) {
+                        luma = mix(luma, 1.0F, opacity);
+                        continue;
+                    }
+                    const usize read_slot = read_slot_by_layer[layer_index];
+                    if (mapped == nullptr || read_slot == kNoReadSlot) {
+                        continue;
+                    }
+                    const f32 stored =
+                        sample_layer(mapped, read_slot, layer_bytes, bytes_per_row, x, y);
+                    if (layer.kind == LayerKind::kImage) {
+                        luma = mix(luma, stored, opacity);
+                    } else {
+                        luma = mix(luma, 0.0F, stored * opacity);
+                    }
+                }
+                const u8 value = std::clamp(luma, 0.0F, 1.0F) >= bayer4(x, y) ? 255U : 0U;
+                const usize out = ((static_cast<usize>(y) * document_width) + x) * 4U;
+                rgba[out + 0U] = value;
+                rgba[out + 1U] = value;
+                rgba[out + 2U] = value;
+                rgba[out + 3U] = 255U;
+            }
+        }
+        mira_download_png(static_cast<int>(document_width), static_cast<int>(document_height),
+                          rgba.data(), static_cast<int>(rgba.size()));
+    };
+
+    if (read_count == 0) {
+        compose(nullptr);
+        return;
+    }
+
+    const usize read_size = layer_bytes * read_count;
 
     wgpu::BufferDescriptor buffer_descriptor = {};
     buffer_descriptor.size = read_size;
     buffer_descriptor.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
     wgpu::Buffer readback = device_.CreateBuffer(&buffer_descriptor);
     if (readback == nullptr) {
+        mira_export_failed();
         return;
     }
 
     wgpu::CommandEncoder encoder = device_.CreateCommandEncoder();
     if (encoder == nullptr) {
+        mira_export_failed();
         return;
     }
-    for (usize index = 0; index < layer_count; ++index) {
-        const Layer &layer = gui_.layers[index];
+    for (usize read_slot = 0; read_slot < read_count; ++read_slot) {
+        const Layer &layer = gui_.layers[read_layers[read_slot]];
         wgpu::TexelCopyTextureInfo source = {};
         source.texture = layer_texture_;
         source.mipLevel = 0;
@@ -193,7 +270,7 @@ void Web::export_png() {
         source.aspect = wgpu::TextureAspect::All;
 
         wgpu::TexelCopyBufferLayout layout = {};
-        layout.offset = layer_bytes * index;
+        layout.offset = layer_bytes * read_slot;
         layout.bytesPerRow = bytes_per_row;
         layout.rowsPerImage = document_height;
 
@@ -207,6 +284,7 @@ void Web::export_png() {
 
     wgpu::CommandBuffer commands = encoder.Finish();
     if (commands == nullptr) {
+        mira_export_failed();
         return;
     }
     queue_.Submit(1, &commands);
@@ -216,48 +294,16 @@ void Web::export_png() {
             wgpu::MapMode::Read, 0, read_size, wgpu::CallbackMode::WaitAnyOnly,
             [&](wgpu::MapAsyncStatus status, wgpu::StringView) {
                 if (status != wgpu::MapAsyncStatus::Success) {
+                    mira_export_failed();
                     return;
                 }
                 const auto *mapped = static_cast<const u8 *>(readback.GetConstMappedRange());
                 if (mapped == nullptr) {
+                    mira_export_failed();
                     readback.Unmap();
                     return;
                 }
-
-                std::vector<u8> rgba(static_cast<usize>(document_width) * document_height * 4U);
-                for (u32 y = 0; y < document_height; ++y) {
-                    for (u32 x = 0; x < document_width; ++x) {
-                        f32 luma = 0.0F;
-                        for (usize step = 0; step < layer_count; ++step) {
-                            const usize layer_index = layer_count - 1U - step;
-                            const Layer &layer = gui_.layers[layer_index];
-                            if (!layervisible(layer)) {
-                                continue;
-                            }
-                            const f32 opacity = static_cast<f32>(layer.opacity_u8) / 255.0F;
-                            if (layer.kind == LayerKind::kBackground) {
-                                luma = mix(luma, 1.0F, opacity);
-                            } else if (layer.kind == LayerKind::kImage) {
-                                const f32 image =
-                                    sample_layer(mapped, layer_index, layer_bytes, bytes_per_row, x, y);
-                                luma = mix(luma, image, opacity);
-                            } else {
-                                const f32 ink =
-                                    sample_layer(mapped, layer_index, layer_bytes, bytes_per_row, x, y);
-                                luma = mix(luma, 0.0F, ink * opacity);
-                            }
-                        }
-                        const u8 value =
-                            std::clamp(luma, 0.0F, 1.0F) >= bayer4(x, y) ? 255U : 0U;
-                        const usize out = ((static_cast<usize>(y) * document_width) + x) * 4U;
-                        rgba[out + 0U] = value;
-                        rgba[out + 1U] = value;
-                        rgba[out + 2U] = value;
-                        rgba[out + 3U] = 255U;
-                    }
-                }
-                mira_download_png(static_cast<int>(document_width), static_cast<int>(document_height),
-                                  rgba.data(), static_cast<int>(rgba.size()));
+                compose(mapped);
                 readback.Unmap();
             }),
         std::numeric_limits<u64>::max());

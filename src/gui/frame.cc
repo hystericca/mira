@@ -35,7 +35,7 @@ void guilayout(GuiState *state, Screen screen) {
                          .width = 20.0F,
                          .height = 21.0F},
         .brush_panel = {},
-        .textures = {},
+        .coverages = {},
         .viewport = {.x = viewport_x,
                      .y = menu_height,
                      .width = viewport_width,
@@ -127,8 +127,7 @@ void guievent(GuiState *state, std::span<const InputEvent> input) {
         } else if (event.kind == InputKind::kText) {
             (void)impl::layertext(state, static_cast<char>(event.dx));
         } else if (event.kind == InputKind::kMouseDown) {
-            state->painting = false;
-            state->panning = false;
+            impl::workcancel(state);
             state->setting_opacity = false;
             state->active_kind = hit.kind;
             state->active_index = hit.index;
@@ -151,7 +150,7 @@ void guievent(GuiState *state, std::span<const InputEvent> input) {
             impl::layerdone(state);
             state->active_menu = kNoMenu;
         } else if (event.kind == InputKind::kMouseMove) {
-            impl::workmove(state, event.x, event.y);
+            impl::workmove(state, event.x, event.y, event.buttons);
             impl::layermove(state, event.x);
         } else if (event.kind == InputKind::kMouseUp) {
             impl::workup(state, event.x, event.y);

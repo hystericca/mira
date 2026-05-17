@@ -62,7 +62,7 @@ class Web {
     };
     static_assert(sizeof(LayerGpu) == 16);
 
-    [[nodiscard]] static auto read_canvas_size() -> CanvasPixelSize;
+    [[nodiscard]] auto read_canvas_size() -> CanvasPixelSize;
     static auto on_resize(int, const EmscriptenUiEvent *, void *user_data) -> bool;
     static auto on_mouse_move(int, const EmscriptenMouseEvent *event, void *user_data) -> bool;
     static auto on_mouse_down(int, const EmscriptenMouseEvent *event, void *user_data) -> bool;
@@ -79,6 +79,9 @@ class Web {
     void push_mouse_event(InputKind kind, const EmscriptenMouseEvent &event);
     void push_wheel_event(const EmscriptenWheelEvent &event);
     void push_key_down_event(const EmscriptenKeyboardEvent &event);
+    [[nodiscard]] auto push_input_event(InputEvent input) -> b8;
+    [[nodiscard]] auto coalesce_input(InputEvent input) -> b8;
+    [[nodiscard]] auto drop_motion_input() -> b8;
     void install_file_import();
     void open_image_picker();
     void export_png();
@@ -129,6 +132,8 @@ class Web {
     wgpu::PresentMode present_mode_ = wgpu::PresentMode::Fifo;
     u32 width_ = 0;
     u32 height_ = 0;
+    f32 css_width_ = 1.0F;
+    f32 css_height_ = 1.0F;
     u32 surface_error_count_ = 0;
     u32 surface_skip_count_ = 0;
     u32 uncaptured_error_count_ = 0;

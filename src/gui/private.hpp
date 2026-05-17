@@ -42,7 +42,7 @@ inline constexpr std::array<MenuCommand, 3> kAppContextCommands = {{
     {"export", MenuAction::kFileExport},
 }};
 
-inline constexpr std::array<MenuCommand, 3> kCanvasContextCommands = {{
+inline constexpr std::array<MenuCommand, 3> kWorkspaceContextCommands = {{
     {"undo", MenuAction::kUndo},
     {"redo", MenuAction::kRedo},
     {"export", MenuAction::kFileExport},
@@ -88,8 +88,8 @@ inline constexpr std::array<MenuCommand, 3> kLayerMenuCommands = {{
 }
 
 [[nodiscard]] inline auto contextcommands(ContextKind kind) -> std::span<const MenuCommand> {
-    if (kind == ContextKind::kCanvas) {
-        return std::span<const MenuCommand>(kCanvasContextCommands);
+    if (kind == ContextKind::kWorkspace) {
+        return std::span<const MenuCommand>(kWorkspaceContextCommands);
     }
     if (kind == ContextKind::kLayer) {
         return std::span<const MenuCommand>(kLayerContextCommands);
@@ -304,8 +304,8 @@ inline void pushsize(GuiState *state, u8 index, b8 selected) {
     });
 }
 
-inline void pushtexture(GuiState *state, u8 index, b8 selected) {
-    (void)state->textures.push({
+inline void pushcoverage(GuiState *state, u8 index, b8 selected) {
+    (void)state->coverages.push({
         .index = index,
         .selected = static_cast<u8>(selected ? 1U : 0U),
     });
@@ -351,13 +351,13 @@ inline void select_size(GuiState *state, u8 index) {
     }
 }
 
-inline void select_texture(GuiState *state, u8 index) {
-    if (index >= state->textures.size()) {
+inline void select_coverage(GuiState *state, u8 index) {
+    if (index >= state->coverages.size()) {
         return;
     }
-    state->curtexture = index;
-    for (usize texture_index = 0; texture_index < state->textures.size(); ++texture_index) {
-        state->textures[texture_index].selected = texture_index == index ? 1U : 0U;
+    state->curcoverage = index;
+    for (usize coverage_index = 0; coverage_index < state->coverages.size(); ++coverage_index) {
+        state->coverages[coverage_index].selected = coverage_index == index ? 1U : 0U;
     }
 }
 
@@ -431,9 +431,9 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
     return sizetool(kind);
 }
 
-[[nodiscard]] inline auto texturetool(ToolKind kind) -> b8 {
-    return kind == ToolKind::kPen || kind == ToolKind::kBrush || kind == ToolKind::kLine ||
-           kind == ToolKind::kRect || kind == ToolKind::kErase;
+[[nodiscard]] inline auto coveragetool(ToolKind kind) -> b8 {
+    return kind == ToolKind::kBrush || kind == ToolKind::kLine || kind == ToolKind::kRect ||
+           kind == ToolKind::kErase;
 }
 
 [[nodiscard]] inline auto paintlayer(const GuiState &state) -> const Layer * {
@@ -468,11 +468,11 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
     return state.curtip;
 }
 
-[[nodiscard]] inline auto stamptexture(const GuiState &state, ToolKind kind) -> u8 {
-    if (!texturetool(kind)) {
+[[nodiscard]] inline auto stampcoverage(const GuiState &state, ToolKind kind) -> u8 {
+    if (!coveragetool(kind)) {
         return 0;
     }
-    return state.curtexture;
+    return state.curcoverage;
 }
 
 [[nodiscard]] inline auto toolkind(const GuiState &state) -> ToolKind {
@@ -523,10 +523,14 @@ inline void update_document_rect(GuiState *state) {
 }
 
 inline void center_document(GuiState *state) {
-    state->view.zoom = 1.0F;
-    state->view.x = (static_cast<f32>(state->document.width) - state->layout.viewport.width) * 0.5F;
+    state->view.zoom = kInitialViewZoom;
+    state->view.x =
+        (static_cast<f32>(state->document.width) - (state->layout.viewport.width / state->view.zoom)) *
+        0.5F;
     state->view.y =
-        (static_cast<f32>(state->document.height) - state->layout.viewport.height) * 0.5F;
+        (static_cast<f32>(state->document.height) -
+         (state->layout.viewport.height / state->view.zoom)) *
+        0.5F;
     state->view_initialized = true;
     update_document_rect(state);
 }
@@ -568,7 +572,7 @@ void layerdone(GuiState *state);
 void layerdraw(const GuiState &state, DrawList *draws);
 
 void historyclear(GuiState *state);
-void historystart(GuiState *state, const Layer &layer);
+[[nodiscard]] b8 historystart(GuiState *state, const Layer &layer);
 void historymark(GuiState *state, PaintStamp stamp);
 void historyfinish(GuiState *state);
 [[nodiscard]] b8 historyundo(GuiState *state);
@@ -576,10 +580,11 @@ void historyfinish(GuiState *state);
 void historyreplay(GuiState *state);
 
 void worklayout(GuiState *state);
+void workcancel(GuiState *state);
 [[nodiscard]] b8 workwheel(GuiState *state, i32 x, i32 y, i32 dx, i32 dy, u8 mods,
                            HitKind hit_kind);
 [[nodiscard]] b8 workmouse(GuiState *state, HitRecord hit, i32 x, i32 y, u8 button);
-void workmove(GuiState *state, i32 x, i32 y);
+void workmove(GuiState *state, i32 x, i32 y, u8 buttons);
 void workup(GuiState *state, i32 x, i32 y);
 void workdraw(const GuiState &state, DrawList *draws);
 

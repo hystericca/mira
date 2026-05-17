@@ -2,6 +2,7 @@
 
 #include <array>
 #include <span>
+#include <type_traits>
 #include <utility>
 
 #include "mira/types.hpp"
@@ -10,6 +11,8 @@ namespace mira {
 
 /* overflow sets a flag instead of allocating */
 template <typename T, usize Capacity> class Table {
+    static_assert(std::is_trivially_copyable_v<T> && std::is_trivially_destructible_v<T>);
+
   public:
     b8 overflowed = false;
 

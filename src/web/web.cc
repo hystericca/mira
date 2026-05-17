@@ -21,6 +21,7 @@ constexpr usize kIconBufferBytes = kMaxIcons * sizeof(IconDraw);
 constexpr usize kGuideStampBufferBytes = kMaxGuideStamps * sizeof(PaintStamp);
 constexpr usize kStampBufferBytes = kMaxPaintStamps * sizeof(PaintStamp);
 constexpr usize kLayerBufferBytes = kMaxLayers * sizeof(f32) * 4U;
+constexpr usize kInputTerminalReserve = 8;
 
 [[nodiscard]] auto prefer_format(const wgpu::SurfaceCapabilities &capabilities)
     -> wgpu::TextureFormat {
@@ -67,6 +68,12 @@ void draw_rows(wgpu::RenderPassEncoder pass, const wgpu::RenderPipeline &pipelin
 [[nodiscard]] auto key_is(const EmscriptenKeyboardEvent &event, std::string_view key) -> b8 {
     return std::string_view(event.key) == key;
 }
+
+[[nodiscard]] auto motion_input(InputKind kind) -> b8 {
+    return kind == InputKind::kMouseMove || kind == InputKind::kWheel;
+}
+
+[[nodiscard]] auto clamp_delta(i32 value) -> i32 { return std::clamp(value, -160, 160); }
 
 void focus_canvas() { emscripten_run_script("document.getElementById('canvas').focus()"); }
 
@@ -245,10 +252,12 @@ auto Web::read_canvas_size() -> CanvasPixelSize {
     double css_width = 0.0;
     double css_height = 0.0;
     emscripten_get_element_css_size(kCanvasSelector, &css_width, &css_height);
+    css_width_ = static_cast<f32>(std::max(1.0, css_width));
+    css_height_ = static_cast<f32>(std::max(1.0, css_height));
     const double scale = std::max(emscripten_get_device_pixel_ratio(), 1.0);
     return {
-        .width = static_cast<u32>(std::max(1.0, std::floor(css_width * scale))),
-        .height = static_cast<u32>(std::max(1.0, std::floor(css_height * scale))),
+        .width = static_cast<u32>(std::max(1.0, std::floor(css_width_ * scale))),
+        .height = static_cast<u32>(std::max(1.0, std::floor(css_height_ * scale))),
     };
 }
 
@@ -326,18 +335,72 @@ void Web::install_input() {
     emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, &Web::on_key_down);
 }
 
+auto Web::coalesce_input(InputEvent input) -> b8 {
+    if (!motion_input(input.kind)) {
+        return false;
+    }
+    for (usize offset = 0; offset < input_events_.size(); ++offset) {
+        const usize index = input_events_.size() - 1U - offset;
+        InputEvent &queued = input_events_[index];
+        if (queued.kind != input.kind) {
+            continue;
+        }
+        if (queued.kind == InputKind::kWheel && queued.mods != input.mods) {
+            continue;
+        }
+        queued.x = input.x;
+        queued.y = input.y;
+        queued.dx = clamp_delta(queued.dx + input.dx);
+        queued.dy = clamp_delta(queued.dy + input.dy);
+        queued.button = input.button;
+        queued.buttons = input.buttons;
+        queued.mods = input.mods;
+        return true;
+    }
+    return false;
+}
+
+auto Web::drop_motion_input() -> b8 {
+    for (usize offset = 0; offset < input_events_.size(); ++offset) {
+        const usize index = input_events_.size() - 1U - offset;
+        if (motion_input(input_events_[index].kind)) {
+            return input_events_.erase(index);
+        }
+    }
+    return false;
+}
+
+auto Web::push_input_event(InputEvent input) -> b8 {
+    if (motion_input(input.kind)) {
+        if (input_events_.size() + kInputTerminalReserve >= input_events_.capacity()) {
+            if (coalesce_input(input)) {
+                return true;
+            }
+            input_events_.overflowed = true;
+            return false;
+        }
+        return input_events_.push(input);
+    }
+
+    if (input_events_.push(input)) {
+        return true;
+    }
+    if (drop_motion_input()) {
+        return input_events_.push(input);
+    }
+    input_events_.overflowed = true;
+    return false;
+}
+
 auto Web::mouse_point(const EmscriptenMouseEvent &event) const -> MousePoint {
-    double css_width = 0.0;
-    double css_height = 0.0;
-    emscripten_get_element_css_size(kCanvasSelector, &css_width, &css_height);
-    if (css_width <= 0.0 || css_height <= 0.0 || screen_.scale <= 0) {
+    if (css_width_ <= 0.0F || css_height_ <= 0.0F || screen_.scale <= 0) {
         return {};
     }
 
     const f32 physical_x =
-        static_cast<f32>(event.targetX * static_cast<double>(width_) / css_width);
+        static_cast<f32>(event.targetX * static_cast<double>(width_) / css_width_);
     const f32 physical_y =
-        static_cast<f32>(event.targetY * static_cast<double>(height_) / css_height);
+        static_cast<f32>(event.targetY * static_cast<double>(height_) / css_height_);
     const i32 x = std::clamp(static_cast<i32>(std::floor(physical_x / screen_.scale)), 0,
                              std::max(0, screen_.width - 1));
     const i32 y = std::clamp(static_cast<i32>(std::floor(physical_y / screen_.scale)), 0,
@@ -370,26 +433,19 @@ void Web::push_mouse_event(InputKind kind, const EmscriptenMouseEvent &event) {
         std::round(static_cast<double>(event.movementX) / static_cast<double>(screen_.scale)));
     input.dy = static_cast<i32>(
         std::round(static_cast<double>(event.movementY) / static_cast<double>(screen_.scale)));
-    (void)input_events_.push(input);
+    if (!push_input_event(input) && kind == InputKind::kMouseUp) {
+        gui_.painting = false;
+        gui_.panning = false;
+        gui_.setting_opacity = false;
+    }
     draw_dirty_ = true;
 }
 
 void Web::push_wheel_event(const EmscriptenWheelEvent &event) {
-    double css_width = 0.0;
-    double css_height = 0.0;
-    emscripten_get_element_css_size(kCanvasSelector, &css_width, &css_height);
-    if (css_width <= 0.0 || css_height <= 0.0 || screen_.scale <= 0) {
+    const MousePoint point = mouse_point(event.mouse);
+    if (!point.ok) {
         return;
     }
-
-    const f32 physical_x =
-        static_cast<f32>(event.mouse.targetX * static_cast<double>(width_) / css_width);
-    const f32 physical_y =
-        static_cast<f32>(event.mouse.targetY * static_cast<double>(height_) / css_height);
-    const i32 x = std::clamp(static_cast<i32>(std::floor(physical_x / screen_.scale)), 0,
-                             std::max(0, screen_.width - 1));
-    const i32 y = std::clamp(static_cast<i32>(std::floor(physical_y / screen_.scale)), 0,
-                             std::max(0, screen_.height - 1));
 
     double unit = 1.0;
     if (event.deltaMode == DOM_DELTA_LINE) {
@@ -415,11 +471,11 @@ void Web::push_wheel_event(const EmscriptenWheelEvent &event) {
     input.buttons = static_cast<u8>(event.mouse.buttons & 0xFFU);
     input.mods = static_cast<u8>((event.mouse.ctrlKey ? kInputCtrl : 0U) |
                                  (event.mouse.shiftKey ? kInputShift : 0U));
-    input.x = x;
-    input.y = y;
+    input.x = point.x;
+    input.y = point.y;
     input.dx = std::clamp(dx, -80, 80);
     input.dy = std::clamp(dy, -80, 80);
-    (void)input_events_.push(input);
+    (void)push_input_event(input);
     draw_dirty_ = true;
 }
 
@@ -454,7 +510,7 @@ void Web::push_key_down_event(const EmscriptenKeyboardEvent &event) {
             text.dx = static_cast<i32>(static_cast<unsigned char>(c));
             text.mods = static_cast<u8>((event.ctrlKey ? kInputCtrl : 0U) |
                                         (event.shiftKey ? kInputShift : 0U));
-            (void)input_events_.push(text);
+            (void)push_input_event(text);
             draw_dirty_ = true;
         }
         return;
@@ -463,7 +519,7 @@ void Web::push_key_down_event(const EmscriptenKeyboardEvent &event) {
     input.kind = InputKind::kKeyDown;
     input.button = static_cast<u8>(key);
     input.mods = static_cast<u8>((command ? kInputCtrl : 0U) | (event.shiftKey ? kInputShift : 0U));
-    (void)input_events_.push(input);
+    (void)push_input_event(input);
     draw_dirty_ = true;
 }
 
@@ -941,10 +997,10 @@ void Web::encode_paint(wgpu::CommandEncoder encoder) {
 
     usize first = 0;
     while (first < gui_.paint_stamps.size()) {
-        const u32 layer = static_cast<u32>(gui_.paint_stamps[first].layer + 0.5F);
+        const u32 layer = static_cast<u32>(gui_.paint_stamps[first].texture_slot + 0.5F);
         usize count = 1;
         while (first + count < gui_.paint_stamps.size() &&
-               static_cast<u32>(gui_.paint_stamps[first + count].layer + 0.5F) == layer) {
+               static_cast<u32>(gui_.paint_stamps[first + count].texture_slot + 0.5F) == layer) {
             ++count;
         }
         if (layer < layer_slice_views_.size() && layer_slice_views_[layer] != nullptr) {

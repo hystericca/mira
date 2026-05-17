@@ -8,8 +8,9 @@ void guiinit(GuiState *state) {
     state->tools.clear();
     state->tips.clear();
     state->sizes.clear();
-    state->textures.clear();
+    state->coverages.clear();
     state->paint_stamps.clear();
+    state->draft_stamps.clear();
     state->strokes.clear();
     state->stroke_stamps.clear();
     state->clear_slots.clear();
@@ -26,7 +27,7 @@ void guiinit(GuiState *state) {
     state->curtool = 0;
     state->curtip = 3;
     state->cursize = 3;
-    state->curtexture = 0;
+    state->curcoverage = 0;
     state->new_field = 0;
     state->active_menu = kNoMenu;
     state->context_target = kNoLayer;
@@ -35,10 +36,15 @@ void guiinit(GuiState *state) {
     state->context_y = 0;
     state->next_layer_id = 1;
     state->stroke_cursor = 0;
+    state->active_paint_first = 0;
     state->active_stroke_first = 0;
     state->active_stroke_count = 0;
     state->active_stroke_layer = 0;
     state->active_stroke_rect = {};
+    state->draft_start_x = 0.0F;
+    state->draft_start_y = 0.0F;
+    state->draft_x = 0.0F;
+    state->draft_y = 0.0F;
     state->document = {.width = kDefaultDocumentWidth, .height = kDefaultDocumentHeight};
     state->last_paint_x = 0.0F;
     state->last_paint_y = 0.0F;
@@ -47,7 +53,7 @@ void guiinit(GuiState *state) {
     state->last_pan_y = 0;
     state->view.x = 0.0F;
     state->view.y = 0.0F;
-    state->view.zoom = 1.0F;
+    state->view.zoom = kInitialViewZoom;
     state->view_initialized = false;
     state->painting = false;
     state->panning = false;
@@ -62,6 +68,9 @@ void guiinit(GuiState *state) {
     state->export_requested = false;
     state->recording_stroke = false;
     state->replay_strokes = false;
+    state->draft_active = false;
+    state->draft_kind = ToolKind::kPen;
+    state->draft_texture_slot = 0;
 
     impl::pushtool(state, 1, "pen", ToolKind::kPen, true);
     impl::pushtool(state, 2, "brush", ToolKind::kBrush, false);
@@ -76,8 +85,8 @@ void guiinit(GuiState *state) {
     for (u8 index = 0; index < 8; ++index) {
         impl::pushsize(state, index, index == state->cursize);
     }
-    for (u8 index = 0; index < 8; ++index) {
-        impl::pushtexture(state, index, index == state->curtexture);
+    for (u8 index = 0; index < kMaxCoverages; ++index) {
+        impl::pushcoverage(state, index, index == state->curcoverage);
     }
 
     impl::pushlayer(state, state->next_layer_id, "ink", LayerKind::kInk, 255, true, false, true, 0,

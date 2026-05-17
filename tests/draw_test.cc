@@ -12,9 +12,9 @@ auto main() -> int {
         return delta > -0.01F && delta < 0.01F;
     };
     const auto same_stamp = [&](const mira::PaintStamp &a, const mira::PaintStamp &b) -> bool {
-        return close(a.x, b.x) && close(a.y, b.y) && close(a.size, b.size) &&
-               close(a.tone, b.tone) && close(a.layer, b.layer) && close(a.tip, b.tip) &&
-               close(a.texture, b.texture);
+        return close(a.x, b.x) && close(a.y, b.y) && close(a.diameter, b.diameter) &&
+               close(a.tone, b.tone) && close(a.texture_slot, b.texture_slot) && close(a.tip, b.tip) &&
+               close(a.coverage, b.coverage);
     };
 
     static_assert(sizeof(mira::RectDraw) == 32);
@@ -26,7 +26,7 @@ auto main() -> int {
     static_assert(sizeof(mira::Tool) == 16);
     static_assert(sizeof(mira::Tip) == 4);
     static_assert(sizeof(mira::Size) == 4);
-    static_assert(sizeof(mira::Texture) == 4);
+    static_assert(sizeof(mira::Coverage) == 4);
     static_assert(sizeof(mira::PaintStamp) == 32);
     static_assert(sizeof(mira::StrokeAction) == 28);
     static_assert(sizeof(mira::Document) == 8);
@@ -106,10 +106,11 @@ auto main() -> int {
     MIRA_TEST(packing.icons[0].tone == mira::tone_value(mira::Tone::kBlack));
     MIRA_TEST(mira::sizeicon(7) == mira::Icon::kSize8);
     MIRA_TEST(mira::tipicon(7) == mira::Icon::kTipScatter);
-    MIRA_TEST(mira::brushicon(7) == mira::Icon::kTipScatter);
-    MIRA_TEST(mira::textureicon(7) == mira::Icon::kTextureHorizontal);
-    MIRA_TEST(
-        mira::add_icon(&packing, mira::Icon::kBrushSize8, 9.0F, 10.0F, mira::Tone::kBlack, 0.25F));
+    MIRA_TEST(mira::coverageicon(0) == mira::Icon::kCoverage16);
+    MIRA_TEST(mira::coverageicon(7) == mira::Icon::kCoverage9);
+    MIRA_TEST(mira::coverageicon(15) == mira::Icon::kCoverage1);
+    MIRA_TEST(mira::add_icon(&packing, mira::Icon::kSize8, 9.0F, 10.0F, mira::Tone::kBlack,
+                             0.25F));
     MIRA_TEST(packing.icons[1].scale == 0.25F);
     MIRA_TEST(mira::add_icon(&packing, mira::Icon::kLockClosed, 11.0F, 12.0F, mira::Tone::kWhite));
     MIRA_TEST(packing.icons[2].code ==
@@ -138,9 +139,9 @@ auto main() -> int {
     MIRA_TEST(gui.sizes.size() == 8);
     MIRA_TEST(gui.sizes[3].selected == 1);
     MIRA_TEST(mira::sizecur(gui) == &gui.sizes[3]);
-    MIRA_TEST(gui.textures.size() == 8);
-    MIRA_TEST(gui.textures[0].selected == 1);
-    MIRA_TEST(mira::texturecur(gui) == &gui.textures[0]);
+    MIRA_TEST(gui.coverages.size() == mira::kMaxCoverages);
+    MIRA_TEST(gui.coverages[0].selected == 1);
+    MIRA_TEST(mira::coveragecur(gui) == &gui.coverages[0]);
     MIRA_TEST(gui.document.width == mira::kDefaultDocumentWidth);
     MIRA_TEST(gui.document.height == mira::kDefaultDocumentHeight);
     MIRA_TEST(gui.layers.size() == 2);
@@ -178,8 +179,8 @@ auto main() -> int {
     MIRA_TEST(gui.layout.document.y == 5.0F);
     MIRA_TEST(gui.layout.document.width == 680.0F);
     MIRA_TEST(gui.layout.document.height == 368.0F);
-    MIRA_TEST(close(gui.view.x, 172.0F));
-    MIRA_TEST(close(gui.view.y, 13.0F));
+    MIRA_TEST(close(gui.view.x, 344.0F));
+    MIRA_TEST(close(gui.view.y, 26.0F));
 
     static mira::GuiState nav_gui;
     mira::guiinit(&nav_gui);
@@ -192,15 +193,15 @@ auto main() -> int {
     wheel_down.y = nav_y;
     wheel_down.dy = 24;
     mira::guievent(&nav_gui, {&wheel_down, 1});
-    MIRA_TEST(close(nav_gui.view.x, 172.0F));
-    MIRA_TEST(close(nav_gui.view.y, 37.0F));
+    MIRA_TEST(close(nav_gui.view.x, 344.0F));
+    MIRA_TEST(close(nav_gui.view.y, 74.0F));
 
     mira::InputEvent wheel_side = wheel_down;
     wheel_side.mods = mira::kInputShift;
     wheel_side.dy = 16;
     mira::guievent(&nav_gui, {&wheel_side, 1});
-    MIRA_TEST(close(nav_gui.view.x, 188.0F));
-    MIRA_TEST(close(nav_gui.view.y, 37.0F));
+    MIRA_TEST(close(nav_gui.view.x, 376.0F));
+    MIRA_TEST(close(nav_gui.view.y, 74.0F));
 
     const mira::f32 document_x_before =
         nav_gui.view.x +
@@ -212,7 +213,7 @@ auto main() -> int {
     wheel_zoom.mods = mira::kInputCtrl;
     wheel_zoom.dy = -12;
     mira::guievent(&nav_gui, {&wheel_zoom, 1});
-    MIRA_TEST(close(nav_gui.view.zoom, 1.125F));
+    MIRA_TEST(close(nav_gui.view.zoom, mira::kInitialViewZoom * 1.125F));
     const mira::f32 document_x_after =
         nav_gui.view.x +
         ((static_cast<mira::f32>(nav_x) - nav_gui.layout.viewport.x) / nav_gui.view.zoom);
@@ -307,7 +308,7 @@ auto main() -> int {
     static mira::DrawList canvas_context_draws;
     mira::guiframe(&canvas_context_gui, normal, {&canvas_context, 1}, &canvas_context_draws);
     MIRA_TEST(canvas_context_gui.context_open);
-    MIRA_TEST(mira::contextkind(canvas_context_gui) == mira::ContextKind::kCanvas);
+    MIRA_TEST(mira::contextkind(canvas_context_gui) == mira::ContextKind::kWorkspace);
     MIRA_TEST(!canvas_context_gui.painting);
     MIRA_TEST(canvas_context_gui.paint_stamps.empty());
     MIRA_TEST(canvas_context_gui.layout.context.x == static_cast<mira::f32>(canvas_context.x));
@@ -507,6 +508,11 @@ auto main() -> int {
     MIRA_TEST(mira::layerlocked(image_gui.layers[1]));
     MIRA_TEST(image_gui.layers[1].texture_slot == 1);
     MIRA_TEST(mira::layername(image_gui.layers[2]) == "background");
+    static mira::GuiState default_image_gui;
+    mira::guiinit(&default_image_gui);
+    const mira::u8 default_image_index = mira::layerimage(&default_image_gui, "Import");
+    MIRA_TEST(default_image_index == 1);
+    MIRA_TEST(default_image_gui.layers[1].opacity_u8 == 255);
 
     const mira::HitRecord tool_hit =
         mira::guihit(gui, static_cast<mira::i32>(gui.layout.tools.x + 1.0F),
@@ -516,8 +522,7 @@ auto main() -> int {
     const mira::HitRecord brush_hit =
         mira::guihit(gui, static_cast<mira::i32>(gui.layout.tips.x + 1.0F),
                      static_cast<mira::i32>(gui.layout.tips.y + 1.0F));
-    MIRA_TEST(brush_hit.kind == mira::HitKind::kBrushButton);
-    MIRA_TEST(brush_hit.index == 0);
+    MIRA_TEST(brush_hit.kind == mira::HitKind::kToolbar);
     const mira::HitRecord empty_tool_hit =
         mira::guihit(gui, static_cast<mira::i32>(gui.layout.tips.x + 29.0F),
                      static_cast<mira::i32>(gui.layout.tips.y + 1.0F));
@@ -529,7 +534,7 @@ auto main() -> int {
     inactive_brush.y = static_cast<mira::i32>(gui.layout.tips.y + 4.0F);
     mira::guievent(&gui, {&inactive_brush, 1});
     MIRA_TEST(gui.cursize == 3);
-    MIRA_TEST(gui.brush_open);
+    MIRA_TEST(!gui.brush_open);
     mira::InputEvent close_brush = {};
     close_brush.kind = mira::InputKind::kKeyDown;
     close_brush.button = static_cast<mira::u8>(mira::Key::kEscape);
@@ -564,14 +569,14 @@ auto main() -> int {
     const mira::HitRecord tip_row_hit =
         mira::guihit(reactive_gui,
                      static_cast<mira::i32>(reactive_gui.layout.brush_panel.x + 14.0F),
-                     static_cast<mira::i32>(reactive_gui.layout.brush_panel.y + 134.0F));
+                     static_cast<mira::i32>(reactive_gui.layout.brush_panel.y + 166.0F));
     MIRA_TEST(tip_row_hit.kind == mira::HitKind::kTip);
     MIRA_TEST(tip_row_hit.index == 2);
-    const mira::HitRecord texture_hit =
+    const mira::HitRecord coverage_hit =
         mira::guihit(reactive_gui,
                      static_cast<mira::i32>(reactive_gui.layout.brush_panel.x + 50.0F),
-                     static_cast<mira::i32>(reactive_gui.layout.brush_panel.y + 61.0F));
-    MIRA_TEST(texture_hit.kind == mira::HitKind::kTexture);
+                     static_cast<mira::i32>(reactive_gui.layout.brush_panel.y + 70.0F));
+    MIRA_TEST(coverage_hit.kind == mira::HitKind::kCoverage);
 
     mira::InputEvent reactive_magic = reactive_brush;
     reactive_magic.y = static_cast<mira::i32>(reactive_gui.layout.tools.y + 76.0F);
@@ -745,15 +750,15 @@ auto main() -> int {
     MIRA_TEST(gui.sizes[6].selected == 1);
     MIRA_TEST(gui.sizes[3].selected == 0);
 
-    mira::InputEvent select_texture = {};
-    select_texture.kind = mira::InputKind::kMouseDown;
-    select_texture.x = static_cast<mira::i32>(gui.layout.brush_panel.x + 50.0F);
-    select_texture.y = static_cast<mira::i32>(gui.layout.brush_panel.y + 61.0F);
-    mira::guievent(&gui, {&select_texture, 1});
-    MIRA_TEST(gui.curtexture == 2);
+    mira::InputEvent select_coverage = {};
+    select_coverage.kind = mira::InputKind::kMouseDown;
+    select_coverage.x = static_cast<mira::i32>(gui.layout.brush_panel.x + 50.0F);
+    select_coverage.y = static_cast<mira::i32>(gui.layout.brush_panel.y + 70.0F);
+    mira::guievent(&gui, {&select_coverage, 1});
+    MIRA_TEST(gui.curcoverage == 2);
     MIRA_TEST(gui.brush_open);
-    MIRA_TEST(gui.textures[2].selected == 1);
-    MIRA_TEST(gui.textures[0].selected == 0);
+    MIRA_TEST(gui.coverages[2].selected == 1);
+    MIRA_TEST(gui.coverages[0].selected == 0);
 
     mira::InputEvent select_brush = {};
     select_brush.kind = mira::InputKind::kMouseDown;
@@ -808,28 +813,29 @@ auto main() -> int {
     paint_down.y = paint_y;
     mira::InputEvent paint_move = {};
     paint_move.kind = mira::InputKind::kMouseMove;
+    paint_move.buttons = 1;
     paint_move.x = static_cast<mira::i32>(gui.layout.document.x + 50.0F);
     paint_move.y = paint_y;
     mira::InputEvent paint_up = paint_move;
     paint_up.kind = mira::InputKind::kMouseUp;
     const mira::InputEvent paint_events[] = {paint_down, paint_move, paint_up};
     mira::guievent(&gui, paint_events);
-    MIRA_TEST(gui.paint_stamps.size() == 11);
-    MIRA_TEST(close(gui.paint_stamps[0].x, 40.0F));
-    MIRA_TEST(close(gui.paint_stamps[0].y, 30.0F));
-    MIRA_TEST(close(gui.paint_stamps[10].x, 50.0F));
-    MIRA_TEST(close(gui.paint_stamps[10].y, 30.0F));
-    MIRA_TEST(close(gui.paint_stamps[0].size, 6.0F));
+    MIRA_TEST(gui.paint_stamps.size() == 21);
+    MIRA_TEST(close(gui.paint_stamps[0].x, 80.0F));
+    MIRA_TEST(close(gui.paint_stamps[0].y, 60.0F));
+    MIRA_TEST(close(gui.paint_stamps[20].x, 100.0F));
+    MIRA_TEST(close(gui.paint_stamps[20].y, 60.0F));
+    MIRA_TEST(close(gui.paint_stamps[0].diameter, 7.0F));
     MIRA_TEST(close(gui.paint_stamps[0].tip, 6.0F));
     MIRA_TEST(close(gui.paint_stamps[0].tone,
                     static_cast<mira::f32>(mira::tone_value(mira::Tone::kBlack))));
-    MIRA_TEST(close(gui.paint_stamps[0].layer, 0.0F));
-    MIRA_TEST(close(gui.paint_stamps[0].texture, 2.0F));
+    MIRA_TEST(close(gui.paint_stamps[0].texture_slot, 0.0F));
+    MIRA_TEST(close(gui.paint_stamps[0].coverage, 2.0F));
     MIRA_TEST(gui.strokes.size() == 1);
     MIRA_TEST(gui.stroke_cursor == 1);
-    MIRA_TEST(gui.stroke_stamps.size() == 11);
+    MIRA_TEST(gui.stroke_stamps.size() == 21);
     MIRA_TEST(gui.strokes[0].first_stamp == 0);
-    MIRA_TEST(gui.strokes[0].stamp_count == 11);
+    MIRA_TEST(gui.strokes[0].stamp_count == 21);
 
     mira::InputEvent undo_stroke = {};
     undo_stroke.kind = mira::InputKind::kKeyDown;
@@ -847,8 +853,76 @@ auto main() -> int {
     mira::guiframe(&gui, normal, {&redo_stroke, 1}, &redo_list);
     MIRA_TEST(gui.stroke_cursor == 1);
     MIRA_TEST(gui.clear_slots.size() == 1);
-    MIRA_TEST(gui.paint_stamps.size() == 11);
-    MIRA_TEST(close(gui.paint_stamps[0].texture, 2.0F));
+    MIRA_TEST(gui.paint_stamps.size() == 21);
+    MIRA_TEST(close(gui.paint_stamps[0].coverage, 2.0F));
+
+    static mira::GuiState dropped_up_gui;
+    mira::guiinit(&dropped_up_gui);
+    mira::guilayout(&dropped_up_gui, normal);
+    dropped_up_gui.view.x = 0.0F;
+    dropped_up_gui.view.y = 0.0F;
+    mira::guilayout(&dropped_up_gui, normal);
+    mira::InputEvent dropped_down = {};
+    dropped_down.kind = mira::InputKind::kMouseDown;
+    dropped_down.x = static_cast<mira::i32>(dropped_up_gui.layout.document.x + 8.0F);
+    dropped_down.y = static_cast<mira::i32>(dropped_up_gui.layout.document.y + 8.0F);
+    mira::InputEvent dropped_move = dropped_down;
+    dropped_move.kind = mira::InputKind::kMouseMove;
+    dropped_move.buttons = 0;
+    dropped_move.x = static_cast<mira::i32>(dropped_up_gui.layout.document.x + 10.0F);
+    const mira::InputEvent dropped_events[] = {dropped_down, dropped_move};
+    mira::guievent(&dropped_up_gui, dropped_events);
+    MIRA_TEST(!dropped_up_gui.painting);
+    MIRA_TEST(dropped_up_gui.strokes.size() == 1);
+
+    static mira::GuiState overflow_paint_gui;
+    mira::guiinit(&overflow_paint_gui);
+    mira::guilayout(&overflow_paint_gui, normal);
+    overflow_paint_gui.view.x = 0.0F;
+    overflow_paint_gui.view.y = 0.0F;
+    mira::guilayout(&overflow_paint_gui, normal);
+    mira::PaintStamp dummy_stamp = {};
+    for (mira::usize index = 0; index + 1U < overflow_paint_gui.paint_stamps.capacity();
+         ++index) {
+        MIRA_TEST(overflow_paint_gui.paint_stamps.push(dummy_stamp));
+    }
+    mira::InputEvent overflow_down = {};
+    overflow_down.kind = mira::InputKind::kMouseDown;
+    overflow_down.x = static_cast<mira::i32>(overflow_paint_gui.layout.document.x + 8.0F);
+    overflow_down.y = static_cast<mira::i32>(overflow_paint_gui.layout.document.y + 8.0F);
+    mira::InputEvent overflow_move = overflow_down;
+    overflow_move.kind = mira::InputKind::kMouseMove;
+    overflow_move.buttons = 1;
+    overflow_move.x = static_cast<mira::i32>(overflow_paint_gui.layout.document.x + 12.0F);
+    const mira::InputEvent overflow_events[] = {overflow_down, overflow_move};
+    mira::guievent(&overflow_paint_gui, overflow_events);
+    MIRA_TEST(overflow_paint_gui.paint_stamps.size() ==
+              overflow_paint_gui.paint_stamps.capacity() - 1U);
+    MIRA_TEST(overflow_paint_gui.paint_stamps.overflowed);
+    MIRA_TEST(overflow_paint_gui.stroke_stamps.empty());
+    MIRA_TEST(overflow_paint_gui.strokes.empty());
+    MIRA_TEST(!overflow_paint_gui.painting);
+
+    static mira::GuiState overflow_action_gui;
+    mira::guiinit(&overflow_action_gui);
+    mira::guilayout(&overflow_action_gui, normal);
+    overflow_action_gui.view.x = 0.0F;
+    overflow_action_gui.view.y = 0.0F;
+    mira::guilayout(&overflow_action_gui, normal);
+    mira::StrokeAction dummy_action = {};
+    for (mira::usize index = 0; index < overflow_action_gui.strokes.capacity(); ++index) {
+        MIRA_TEST(overflow_action_gui.strokes.push(dummy_action));
+    }
+    overflow_action_gui.stroke_cursor = static_cast<mira::u32>(overflow_action_gui.strokes.size());
+    mira::InputEvent overflow_action_down = {};
+    overflow_action_down.kind = mira::InputKind::kMouseDown;
+    overflow_action_down.x = static_cast<mira::i32>(overflow_action_gui.layout.document.x + 8.0F);
+    overflow_action_down.y = static_cast<mira::i32>(overflow_action_gui.layout.document.y + 8.0F);
+    mira::guievent(&overflow_action_gui, {&overflow_action_down, 1});
+    MIRA_TEST(overflow_action_gui.paint_stamps.empty());
+    MIRA_TEST(overflow_action_gui.stroke_stamps.empty());
+    MIRA_TEST(overflow_action_gui.strokes.overflowed);
+    MIRA_TEST(!overflow_action_gui.painting);
 
     static mira::GuiState zoom_paint_gui;
     mira::guiinit(&zoom_paint_gui);
@@ -887,6 +961,7 @@ auto main() -> int {
                                                ((30.0F - zoom_paint_gui.view.y) * 2.0F));
     mira::InputEvent zoom_paint_move = {};
     zoom_paint_move.kind = mira::InputKind::kMouseMove;
+    zoom_paint_move.buttons = 1;
     zoom_paint_move.x = static_cast<mira::i32>(zoom_paint_gui.layout.viewport.x +
                                                ((45.0F - zoom_paint_gui.view.x) * 2.0F));
     zoom_paint_move.y = zoom_paint_down.y;
@@ -897,13 +972,14 @@ auto main() -> int {
     MIRA_TEST(zoom_paint_gui.paint_stamps.size() == 6);
     MIRA_TEST(close(zoom_paint_gui.paint_stamps[0].x, 40.0F));
     MIRA_TEST(close(zoom_paint_gui.paint_stamps[5].x, 45.0F));
-    MIRA_TEST(close(zoom_paint_gui.paint_stamps[0].size, 6.0F));
+    MIRA_TEST(close(zoom_paint_gui.paint_stamps[0].diameter, 7.0F));
 
     static mira::GuiState line_gui;
     mira::guiinit(&line_gui);
     mira::guilayout(&line_gui, normal);
     line_gui.view.x = 0.0F;
     line_gui.view.y = 0.0F;
+    line_gui.view.zoom = 1.0F;
     mira::guilayout(&line_gui, normal);
     mira::InputEvent line_tool = {};
     line_tool.kind = mira::InputKind::kMouseDown;
@@ -916,6 +992,7 @@ auto main() -> int {
     mira::guilayout(&line_preview_gui, normal);
     line_preview_gui.view.x = 0.0F;
     line_preview_gui.view.y = 0.0F;
+    line_preview_gui.view.zoom = 1.0F;
     mira::guilayout(&line_preview_gui, normal);
     mira::InputEvent line_preview_tool = {};
     line_preview_tool.kind = mira::InputKind::kMouseDown;
@@ -923,7 +1000,7 @@ auto main() -> int {
     line_preview_tool.y = static_cast<mira::i32>(line_preview_gui.layout.tools.y + 52.0F);
     mira::guievent(&line_preview_gui, {&line_preview_tool, 1});
     line_preview_gui.curtip = 6;
-    line_preview_gui.curtexture = 2;
+    line_preview_gui.curcoverage = 2;
     static mira::DrawList line_base_draws;
     mira::guiframe(&line_preview_gui, normal, {}, &line_base_draws);
     mira::InputEvent line_preview_down = {};
@@ -932,6 +1009,7 @@ auto main() -> int {
     line_preview_down.y = static_cast<mira::i32>(line_preview_gui.layout.document.y + 20.0F);
     mira::InputEvent line_preview_move = line_preview_down;
     line_preview_move.kind = mira::InputKind::kMouseMove;
+    line_preview_move.buttons = 1;
     line_preview_move.x = static_cast<mira::i32>(line_preview_gui.layout.document.x + 15.0F);
     const mira::InputEvent line_preview_events[] = {line_preview_down, line_preview_move};
     static mira::DrawList line_preview_draws;
@@ -939,16 +1017,24 @@ auto main() -> int {
     const mira::usize line_guide_start = line_base_draws.guide_stamps.size();
     MIRA_TEST(line_preview_gui.painting);
     MIRA_TEST(line_preview_gui.paint_stamps.empty());
+    MIRA_TEST(line_preview_gui.draft_active);
+    MIRA_TEST(line_preview_gui.draft_stamps.size() == 6);
     MIRA_TEST(line_preview_draws.guide_stamps.size() == line_guide_start + 6);
     MIRA_TEST(close(line_preview_draws.guide_stamps[line_guide_start].x, 10.0F));
     MIRA_TEST(close(line_preview_draws.guide_stamps[line_guide_start + 5].x, 15.0F));
-    MIRA_TEST(close(line_preview_draws.guide_stamps[line_guide_start].size, 3.0F));
+    MIRA_TEST(close(line_preview_draws.guide_stamps[line_guide_start].diameter, 4.0F));
     MIRA_TEST(close(line_preview_draws.guide_stamps[line_guide_start].tip, 6.0F));
-    MIRA_TEST(close(line_preview_draws.guide_stamps[line_guide_start].texture, 2.0F));
+    MIRA_TEST(close(line_preview_draws.guide_stamps[line_guide_start].coverage, 2.0F));
+    for (mira::usize stamp = 0; stamp < line_preview_gui.draft_stamps.size(); ++stamp) {
+        MIRA_TEST(same_stamp(line_preview_draws.guide_stamps[line_guide_start + stamp],
+                             line_preview_gui.draft_stamps[stamp]));
+    }
     mira::InputEvent line_preview_up = line_preview_move;
     line_preview_up.kind = mira::InputKind::kMouseUp;
     mira::guievent(&line_preview_gui, {&line_preview_up, 1});
     MIRA_TEST(line_preview_gui.paint_stamps.size() == 6);
+    MIRA_TEST(!line_preview_gui.draft_active);
+    MIRA_TEST(line_preview_gui.draft_stamps.empty());
     for (mira::usize stamp = 0; stamp < 6; ++stamp) {
         MIRA_TEST(same_stamp(line_preview_draws.guide_stamps[line_guide_start + stamp],
                              line_preview_gui.paint_stamps[stamp]));
@@ -960,6 +1046,7 @@ auto main() -> int {
     mira::guilayout(&edge_preview_gui, normal);
     edge_preview_gui.view.x = 0.0F;
     edge_preview_gui.view.y = 0.0F;
+    edge_preview_gui.view.zoom = 1.0F;
     mira::guilayout(&edge_preview_gui, normal);
     mira::InputEvent edge_line_tool = {};
     edge_line_tool.kind = mira::InputKind::kMouseDown;
@@ -967,13 +1054,14 @@ auto main() -> int {
     edge_line_tool.y = static_cast<mira::i32>(edge_preview_gui.layout.tools.y + 52.0F);
     mira::guievent(&edge_preview_gui, {&edge_line_tool, 1});
     edge_preview_gui.curtip = 6;
-    edge_preview_gui.curtexture = 2;
+    edge_preview_gui.curcoverage = 2;
     mira::InputEvent edge_preview_down = {};
     edge_preview_down.kind = mira::InputKind::kMouseDown;
     edge_preview_down.x = static_cast<mira::i32>(edge_preview_gui.layout.document.x + 18.0F);
     edge_preview_down.y = static_cast<mira::i32>(edge_preview_gui.layout.document.y + 10.0F);
     mira::InputEvent edge_preview_move = edge_preview_down;
     edge_preview_move.kind = mira::InputKind::kMouseMove;
+    edge_preview_move.buttons = 1;
     edge_preview_move.x = static_cast<mira::i32>(edge_preview_gui.layout.document.x + 24.0F);
     edge_preview_move.y = static_cast<mira::i32>(edge_preview_gui.layout.document.y + 16.0F);
     const mira::InputEvent edge_preview_events[] = {edge_preview_down, edge_preview_move};
@@ -1007,6 +1095,7 @@ auto main() -> int {
     mira::guilayout(&rect_gui, normal);
     rect_gui.view.x = 0.0F;
     rect_gui.view.y = 0.0F;
+    rect_gui.view.zoom = 1.0F;
     mira::guilayout(&rect_gui, normal);
     mira::InputEvent rect_tool = {};
     rect_tool.kind = mira::InputKind::kMouseDown;
@@ -1019,6 +1108,7 @@ auto main() -> int {
     mira::guilayout(&rect_preview_gui, normal);
     rect_preview_gui.view.x = 0.0F;
     rect_preview_gui.view.y = 0.0F;
+    rect_preview_gui.view.zoom = 1.0F;
     mira::guilayout(&rect_preview_gui, normal);
     mira::InputEvent rect_preview_tool = {};
     rect_preview_tool.kind = mira::InputKind::kMouseDown;
@@ -1026,7 +1116,7 @@ auto main() -> int {
     rect_preview_tool.y = static_cast<mira::i32>(rect_preview_gui.layout.tools.y + 100.0F);
     mira::guievent(&rect_preview_gui, {&rect_preview_tool, 1});
     rect_preview_gui.curtip = 1;
-    rect_preview_gui.curtexture = 7;
+    rect_preview_gui.curcoverage = 7;
     static mira::DrawList rect_base_draws;
     mira::guiframe(&rect_preview_gui, normal, {}, &rect_base_draws);
     mira::InputEvent rect_preview_down = {};
@@ -1035,6 +1125,7 @@ auto main() -> int {
     rect_preview_down.y = static_cast<mira::i32>(rect_preview_gui.layout.document.y + 20.0F);
     mira::InputEvent rect_preview_move = rect_preview_down;
     rect_preview_move.kind = mira::InputKind::kMouseMove;
+    rect_preview_move.buttons = 1;
     rect_preview_move.x = static_cast<mira::i32>(rect_preview_gui.layout.document.x + 22.0F);
     rect_preview_move.y = static_cast<mira::i32>(rect_preview_gui.layout.document.y + 22.0F);
     const mira::InputEvent rect_preview_events[] = {rect_preview_down, rect_preview_move};
@@ -1043,19 +1134,63 @@ auto main() -> int {
     const mira::usize rect_guide_start = rect_base_draws.guide_stamps.size();
     MIRA_TEST(rect_preview_gui.painting);
     MIRA_TEST(rect_preview_gui.paint_stamps.empty());
-    MIRA_TEST(rect_preview_draws.guide_stamps.size() == rect_guide_start + 9);
+    MIRA_TEST(rect_preview_gui.draft_active);
+    MIRA_TEST(rect_preview_gui.draft_stamps.size() == 8);
+    MIRA_TEST(rect_preview_draws.guide_stamps.size() == rect_guide_start + 8);
     MIRA_TEST(close(rect_preview_draws.guide_stamps[rect_guide_start].x, 20.0F));
-    MIRA_TEST(close(rect_preview_draws.guide_stamps[rect_guide_start + 8].x, 22.0F));
-    MIRA_TEST(close(rect_preview_draws.guide_stamps[rect_guide_start].size, 3.0F));
+    MIRA_TEST(close(rect_preview_draws.guide_stamps[rect_guide_start + 7].x, 22.0F));
+    MIRA_TEST(close(rect_preview_draws.guide_stamps[rect_guide_start].diameter, 4.0F));
     MIRA_TEST(close(rect_preview_draws.guide_stamps[rect_guide_start].tip, 1.0F));
-    MIRA_TEST(close(rect_preview_draws.guide_stamps[rect_guide_start].texture, 7.0F));
+    MIRA_TEST(close(rect_preview_draws.guide_stamps[rect_guide_start].coverage, 7.0F));
+    for (mira::usize stamp = 0; stamp < rect_preview_gui.draft_stamps.size(); ++stamp) {
+        MIRA_TEST(same_stamp(rect_preview_draws.guide_stamps[rect_guide_start + stamp],
+                             rect_preview_gui.draft_stamps[stamp]));
+    }
     mira::InputEvent rect_preview_up = rect_preview_move;
     rect_preview_up.kind = mira::InputKind::kMouseUp;
     mira::guievent(&rect_preview_gui, {&rect_preview_up, 1});
-    MIRA_TEST(rect_preview_gui.paint_stamps.size() == 9);
-    for (mira::usize stamp = 0; stamp < 9; ++stamp) {
+    MIRA_TEST(rect_preview_gui.paint_stamps.size() == 8);
+    MIRA_TEST(!rect_preview_gui.draft_active);
+    MIRA_TEST(rect_preview_gui.draft_stamps.empty());
+    for (mira::usize stamp = 0; stamp < 8; ++stamp) {
         MIRA_TEST(same_stamp(rect_preview_draws.guide_stamps[rect_guide_start + stamp],
                              rect_preview_gui.paint_stamps[stamp]));
+    }
+
+    static mira::GuiState rect_reverse_gui;
+    mira::guiinit(&rect_reverse_gui);
+    mira::guilayout(&rect_reverse_gui, normal);
+    rect_reverse_gui.view.x = 0.0F;
+    rect_reverse_gui.view.y = 0.0F;
+    rect_reverse_gui.view.zoom = 1.0F;
+    mira::guilayout(&rect_reverse_gui, normal);
+    mira::InputEvent rect_reverse_tool = {};
+    rect_reverse_tool.kind = mira::InputKind::kMouseDown;
+    rect_reverse_tool.x = static_cast<mira::i32>(rect_reverse_gui.layout.tools.x + 8.0F);
+    rect_reverse_tool.y = static_cast<mira::i32>(rect_reverse_gui.layout.tools.y + 100.0F);
+    mira::guievent(&rect_reverse_gui, {&rect_reverse_tool, 1});
+    rect_reverse_gui.curtip = 6;
+    rect_reverse_gui.curcoverage = 2;
+    mira::InputEvent rect_reverse_down = {};
+    rect_reverse_down.kind = mira::InputKind::kMouseDown;
+    rect_reverse_down.x = static_cast<mira::i32>(rect_reverse_gui.layout.document.x + 24.0F);
+    rect_reverse_down.y = static_cast<mira::i32>(rect_reverse_gui.layout.document.y + 25.0F);
+    mira::InputEvent rect_reverse_move = rect_reverse_down;
+    rect_reverse_move.kind = mira::InputKind::kMouseMove;
+    rect_reverse_move.buttons = 1;
+    rect_reverse_move.x = static_cast<mira::i32>(rect_reverse_gui.layout.document.x + 20.0F);
+    rect_reverse_move.y = static_cast<mira::i32>(rect_reverse_gui.layout.document.y + 21.0F);
+    const mira::InputEvent rect_reverse_events[] = {rect_reverse_down, rect_reverse_move};
+    static mira::DrawList rect_reverse_draws;
+    mira::guiframe(&rect_reverse_gui, normal, rect_reverse_events, &rect_reverse_draws);
+    mira::InputEvent rect_reverse_up = rect_reverse_move;
+    rect_reverse_up.kind = mira::InputKind::kMouseUp;
+    mira::guievent(&rect_reverse_gui, {&rect_reverse_up, 1});
+    MIRA_TEST(rect_reverse_draws.guide_stamps.size() == rect_reverse_gui.paint_stamps.size());
+    MIRA_TEST(rect_reverse_gui.paint_stamps.size() == 16);
+    for (mira::usize stamp = 0; stamp < rect_reverse_gui.paint_stamps.size(); ++stamp) {
+        MIRA_TEST(same_stamp(rect_reverse_draws.guide_stamps[stamp],
+                             rect_reverse_gui.paint_stamps[stamp]));
     }
 
     mira::InputEvent rect_down = {};
@@ -1088,7 +1223,7 @@ auto main() -> int {
     magic_down.y = static_cast<mira::i32>(magic_gui.layout.document.y + 30.0F);
     mira::guievent(&magic_gui, {&magic_down, 1});
     MIRA_TEST(magic_gui.paint_stamps.size() == 1);
-    MIRA_TEST(close(magic_gui.paint_stamps[0].size, 7.0F));
+    MIRA_TEST(close(magic_gui.paint_stamps[0].diameter, 8.0F));
     MIRA_TEST(close(magic_gui.paint_stamps[0].tone,
                     static_cast<mira::f32>(mira::tone_value(mira::Tone::kWhite))));
 

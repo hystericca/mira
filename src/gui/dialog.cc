@@ -246,7 +246,7 @@ void dialogdraw(const GuiState &state, DrawList *draws) {
               .width = state.layout.dialog.width,
               .height = 18.0F},
              Tone::kBlack);
-    drawtext(draws, "new canvas", state.layout.dialog.x + 5.0F, state.layout.dialog.y + 4.0F,
+    drawtext(draws, "new document", state.layout.dialog.x + 5.0F, state.layout.dialog.y + 4.0F,
              Tone::kWhite);
     drawtext(draws, "w", state.layout.dialog.x + 18.0F, state.layout.dialog_width.y + 4.0F,
              Tone::kBlack);

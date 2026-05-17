@@ -14,8 +14,9 @@ constexpr usize kMaxLayers = 16;
 constexpr usize kMaxTools = 8;
 constexpr usize kMaxTips = 8;
 constexpr usize kMaxSizes = 8;
-constexpr usize kMaxTextures = 8;
+constexpr usize kMaxCoverages = 16;
 constexpr usize kMaxPaintStamps = 32768;
+constexpr usize kMaxDraftStamps = 32768;
 constexpr usize kMaxStrokeActions = 1024;
 constexpr usize kMaxHistoryStamps = 32768;
 constexpr usize kMaxInputEvents = 128;
@@ -25,8 +26,9 @@ constexpr usize kToolNameBytes = 8;
 constexpr u8 kNoLayer = 0xFFU;
 constexpr u8 kNoMenu = 0xFFU;
 constexpr u8 kBackgroundTextureSlot = static_cast<u8>(kMaxLayers - 1U);
-constexpr i32 kDefaultDocumentWidth = 680;
-constexpr i32 kDefaultDocumentHeight = 368;
+constexpr i32 kDefaultDocumentWidth = 1360;
+constexpr i32 kDefaultDocumentHeight = 736;
+constexpr f32 kInitialViewZoom = 0.5F;
 
 constexpr u8 kLayerVisible = 1U << 0U;
 constexpr u8 kLayerLocked = 1U << 1U;
@@ -82,12 +84,12 @@ struct Size {
 };
 static_assert(sizeof(Size) == 4);
 
-struct Texture {
+struct Coverage {
     u8 index = 0;
     u8 selected = 0;
     u16 _pad = 0;
 };
-static_assert(sizeof(Texture) == 4);
+static_assert(sizeof(Coverage) == 4);
 
 struct StrokeAction {
     u32 layer_id = 0;
@@ -143,7 +145,7 @@ enum class HitKind : u8 {
     kSize,
     kBrushButton,
     kBrushPanel,
-    kTexture,
+    kCoverage,
     kLayerRow,
     kLayerVisibility,
     kLayerLock,
@@ -172,7 +174,7 @@ enum class MenuAction : u8 {
 enum class ContextKind : u8 {
     kNone,
     kApp,
-    kCanvas,
+    kWorkspace,
     kLayer,
 };
 
@@ -209,7 +211,7 @@ struct GuiLayout {
     Rect tips;
     Rect brush_button;
     Rect brush_panel;
-    Rect textures;
+    Rect coverages;
     Rect viewport;
     Rect document;
     Rect layers;
@@ -228,8 +230,9 @@ struct GuiState {
     Table<Tool, kMaxTools> tools;
     Table<Tip, kMaxTips> tips;
     Table<Size, kMaxSizes> sizes;
-    Table<Texture, kMaxTextures> textures;
+    Table<Coverage, kMaxCoverages> coverages;
     Table<PaintStamp, kMaxPaintStamps> paint_stamps;
+    Table<PaintStamp, kMaxDraftStamps> draft_stamps;
     Table<StrokeAction, kMaxStrokeActions> strokes;
     Table<PaintStamp, kMaxHistoryStamps> stroke_stamps;
     Table<u8, kMaxLayers> clear_slots;
@@ -249,7 +252,7 @@ struct GuiState {
     u8 curtool = 0;
     u8 curtip = 3;
     u8 cursize = 3;
-    u8 curtexture = 0;
+    u8 curcoverage = 0;
     u8 new_field = 0;
     u8 active_menu = kNoMenu;
     u8 context_target = kNoLayer;
@@ -258,10 +261,15 @@ struct GuiState {
     i32 context_y = 0;
     u32 next_layer_id = 1;
     u32 stroke_cursor = 0;
+    u32 active_paint_first = 0;
     u32 active_stroke_first = 0;
     u32 active_stroke_count = 0;
     u32 active_stroke_layer = 0;
     Rect active_stroke_rect = {};
+    f32 draft_start_x = 0.0F;
+    f32 draft_start_y = 0.0F;
+    f32 draft_x = 0.0F;
+    f32 draft_y = 0.0F;
     f32 last_paint_x = 0.0F;
     f32 last_paint_y = 0.0F;
     f32 brush_t = 0.0F;
@@ -282,6 +290,9 @@ struct GuiState {
     b8 export_requested = false;
     b8 recording_stroke = false;
     b8 replay_strokes = false;
+    b8 draft_active = false;
+    ToolKind draft_kind = ToolKind::kPen;
+    u8 draft_texture_slot = 0;
 };
 
 [[nodiscard]] std::string_view layername(const Layer &layer);
@@ -291,11 +302,10 @@ struct GuiState {
 [[nodiscard]] b8 layerselected(const Layer &layer);
 [[nodiscard]] const Tip *tipcur(const GuiState &state);
 [[nodiscard]] const Size *sizecur(const GuiState &state);
-[[nodiscard]] const Texture *texturecur(const GuiState &state);
+[[nodiscard]] const Coverage *coveragecur(const GuiState &state);
 [[nodiscard]] Icon tipicon(u8 index);
 [[nodiscard]] Icon sizeicon(u8 index);
-[[nodiscard]] Icon brushicon(u8 index);
-[[nodiscard]] Icon textureicon(u8 index);
+[[nodiscard]] Icon coverageicon(u8 index);
 void guiinit(GuiState *state);
 void docnew(GuiState *state, i32 width = kDefaultDocumentWidth,
             i32 height = kDefaultDocumentHeight);
@@ -305,7 +315,7 @@ void guidraw(const GuiState &state, DrawList *draws);
 void guiframe(GuiState *state, Screen screen, std::span<const InputEvent> input, DrawList *draws);
 [[nodiscard]] b8 guianimating(const GuiState &state);
 [[nodiscard]] b8 layeradd(GuiState *state, std::string_view name);
-[[nodiscard]] u8 layerimage(GuiState *state, std::string_view name, u8 opacity = 128);
+[[nodiscard]] u8 layerimage(GuiState *state, std::string_view name, u8 opacity = 255);
 [[nodiscard]] b8 layerdel(GuiState *state);
 [[nodiscard]] b8 layerrename(GuiState *state, u8 index, std::string_view name);
 [[nodiscard]] b8 layeredit(GuiState *state);

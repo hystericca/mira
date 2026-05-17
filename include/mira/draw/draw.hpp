@@ -41,22 +41,22 @@ enum class Icon : u8 {
     kSize6,
     kSize7,
     kSize8,
-    kBrushSize1,
-    kBrushSize2,
-    kBrushSize3,
-    kBrushSize4,
-    kBrushSize5,
-    kBrushSize6,
-    kBrushSize7,
-    kBrushSize8,
-    kTextureFull,
-    kTextureA,
-    kTextureB,
-    kTextureC,
-    kTextureDiagR,
-    kTextureDiagL,
-    kTextureVertical,
-    kTextureHorizontal,
+    kCoverage16,
+    kCoverage15,
+    kCoverage14,
+    kCoverage13,
+    kCoverage12,
+    kCoverage11,
+    kCoverage10,
+    kCoverage9,
+    kCoverage8,
+    kCoverage7,
+    kCoverage6,
+    kCoverage5,
+    kCoverage4,
+    kCoverage3,
+    kCoverage2,
+    kCoverage1,
     kLockOpen,
     kLockClosed,
     kTipRound,
@@ -118,11 +118,11 @@ struct IconDraw {
 struct PaintStamp {
     f32 x = 0.0F;
     f32 y = 0.0F;
-    f32 size = 0.0F;
+    f32 diameter = 1.0F;
     f32 tone = 0.0F;
-    f32 layer = 0.0F;
+    f32 texture_slot = 0.0F;
     f32 tip = 0.0F;
-    f32 texture = 0.0F;
+    f32 coverage = 0.0F;
     f32 _pad = 0.0F;
 };
 

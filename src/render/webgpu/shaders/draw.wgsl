@@ -44,12 +44,12 @@ struct CompositeVertex {
 
 struct StampVertex {
     @builtin(position) position: vec4<f32>,
-    @location(0) local: vec2<f32>,
-    @location(1) size: f32,
-    @location(2) tone: f32,
-    @location(3) tip: f32,
-    @location(4) texture: f32,
-    @location(5) doc: vec2<f32>,
+    @location(0) diameter: f32,
+    @location(1) tone: f32,
+    @location(2) tip: f32,
+    @location(3) coverage: f32,
+    @location(4) doc: vec2<f32>,
+    @location(5) stamp: vec2<f32>,
 }
 
 @group(0) @binding(0)
@@ -64,16 +64,18 @@ var layer_tex: texture_2d_array<f32>;
 @group(1) @binding(2)
 var layer_sampler: sampler;
 
-fn bayer4(p: vec2<f32>) -> f32 {
-    let x = u32(floor(p.x)) & 3u;
-    let y = u32(floor(p.y)) & 3u;
-    let cells = array<f32, 16>(
-        0.0, 8.0, 2.0, 10.0,
-        12.0, 4.0, 14.0, 6.0,
-        3.0, 11.0, 1.0, 9.0,
-        15.0, 7.0, 13.0, 5.0
+fn bayer_rank(x: u32, y: u32) -> u32 {
+    let cells = array<u32, 16>(
+        0u, 8u, 2u, 10u,
+        12u, 4u, 14u, 6u,
+        3u, 11u, 1u, 9u,
+        15u, 7u, 13u, 5u
     );
-    return (cells[(y * 4u) + x] + 0.5) / 16.0;
+    return cells[((y & 3u) * 4u) + (x & 3u)];
+}
+
+fn bayer4(p: vec2<f32>) -> f32 {
+    return (f32(bayer_rank(u32(floor(p.x)), u32(floor(p.y)))) + 0.5) / 16.0;
 }
 
 fn mono(luma: f32, p: vec2<f32>) -> vec4<f32> {
@@ -152,6 +154,18 @@ fn font_bit(code: u32, x: u32, y: u32) -> bool {
     let row = font.glyphs[code - first].rows[y];
     return ((row >> ((width - 1u) - x)) & 1u) != 0u;
 }
+
+fn coverage_row_bits(code: u32, row: u32) -> u32 {
+    let first = min(code, 15u);
+    var bits = 0u;
+    for (var col = 0u; col < 8u; col = col + 1u) {
+        if bayer_rank(col, row) >= first {
+            bits = bits | (1u << (7u - col));
+        }
+    }
+    return bits;
+}
+
 fn icon_row_bits(code: u32, row: u32) -> u32 {
     let pen = array<u32, 8>(0xc0u, 0xe0u, 0x50u, 0x28u, 0x14u, 0x0au, 0x04u, 0x00u);
     let brush = array<u32, 8>(0xe0u, 0xd0u, 0xa8u, 0x44u, 0x22u, 0x12u, 0x0cu, 0x00u);
@@ -168,22 +182,6 @@ fn icon_row_bits(code: u32, row: u32) -> u32 {
     let size6 = array<u32, 8>(0x10u, 0x38u, 0x7cu, 0xfeu, 0x7cu, 0x38u, 0x10u, 0x00u);
     let size7 = array<u32, 8>(0x38u, 0x7cu, 0xfeu, 0xfeu, 0xfeu, 0x7cu, 0x38u, 0x00u);
     let size8 = array<u32, 8>(0x7cu, 0xfeu, 0xfeu, 0xfeu, 0xfeu, 0xfeu, 0x7cu, 0x00u);
-    let brush_size1 = array<u32, 8>(0x00u, 0x00u, 0x00u, 0x10u, 0x00u, 0x00u, 0x00u, 0x00u);
-    let brush_size2 = array<u32, 8>(0x00u, 0x00u, 0x10u, 0x28u, 0x10u, 0x00u, 0x00u, 0x00u);
-    let brush_size3 = array<u32, 8>(0x00u, 0x00u, 0x38u, 0x28u, 0x38u, 0x00u, 0x00u, 0x00u);
-    let brush_size4 = array<u32, 8>(0x00u, 0x10u, 0x28u, 0x44u, 0x28u, 0x10u, 0x00u, 0x00u);
-    let brush_size5 = array<u32, 8>(0x00u, 0x38u, 0x44u, 0x44u, 0x44u, 0x38u, 0x00u, 0x00u);
-    let brush_size6 = array<u32, 8>(0x10u, 0x28u, 0x44u, 0x82u, 0x44u, 0x28u, 0x10u, 0x00u);
-    let brush_size7 = array<u32, 8>(0x38u, 0x44u, 0x82u, 0x82u, 0x82u, 0x44u, 0x38u, 0x00u);
-    let brush_size8 = array<u32, 8>(0x7cu, 0x82u, 0x82u, 0x82u, 0x82u, 0x82u, 0x7cu, 0x00u);
-    let texture_full = array<u32, 8>(0xfeu, 0xfeu, 0xfeu, 0xfeu, 0xfeu, 0xfeu, 0xfeu, 0x00u);
-    let texture_a = array<u32, 8>(0xfeu, 0xd6u, 0xaau, 0xd6u, 0xaau, 0xd6u, 0xfeu, 0x00u);
-    let texture_b = array<u32, 8>(0xfeu, 0x92u, 0x82u, 0xd6u, 0x82u, 0x92u, 0xfeu, 0x00u);
-    let texture_c = array<u32, 8>(0xfeu, 0x82u, 0x92u, 0xaau, 0x92u, 0x82u, 0xfeu, 0x00u);
-    let texture_diag_r = array<u32, 8>(0xfeu, 0xa6u, 0xcau, 0x92u, 0xa6u, 0xcau, 0xfeu, 0x00u);
-    let texture_diag_l = array<u32, 8>(0xfeu, 0xcau, 0xa6u, 0x92u, 0xcau, 0xa6u, 0xfeu, 0x00u);
-    let texture_vertical = array<u32, 8>(0xfeu, 0xaau, 0xaau, 0xaau, 0xaau, 0xaau, 0xfeu, 0x00u);
-    let texture_horizontal = array<u32, 8>(0xfeu, 0x82u, 0xfeu, 0x82u, 0xfeu, 0x82u, 0xfeu, 0x00u);
     let lock_open = array<u32, 8>(0x0cu, 0x12u, 0x10u, 0x7eu, 0x42u, 0x5au, 0x42u, 0x7eu);
     let lock_closed = array<u32, 8>(0x18u, 0x24u, 0x24u, 0x7eu, 0x42u, 0x5au, 0x42u, 0x7eu);
 
@@ -203,22 +201,22 @@ fn icon_row_bits(code: u32, row: u32) -> u32 {
         case 12u: { return size6[row]; }
         case 13u: { return size7[row]; }
         case 14u: { return size8[row]; }
-        case 15u: { return brush_size1[row]; }
-        case 16u: { return brush_size2[row]; }
-        case 17u: { return brush_size3[row]; }
-        case 18u: { return brush_size4[row]; }
-        case 19u: { return brush_size5[row]; }
-        case 20u: { return brush_size6[row]; }
-        case 21u: { return brush_size7[row]; }
-        case 22u: { return brush_size8[row]; }
-        case 23u: { return texture_full[row]; }
-        case 24u: { return texture_a[row]; }
-        case 25u: { return texture_b[row]; }
-        case 26u: { return texture_c[row]; }
-        case 27u: { return texture_diag_r[row]; }
-        case 28u: { return texture_diag_l[row]; }
-        case 29u: { return texture_vertical[row]; }
-        case 30u: { return texture_horizontal[row]; }
+        case 15u: { return coverage_row_bits(0u, row); }
+        case 16u: { return coverage_row_bits(1u, row); }
+        case 17u: { return coverage_row_bits(2u, row); }
+        case 18u: { return coverage_row_bits(3u, row); }
+        case 19u: { return coverage_row_bits(4u, row); }
+        case 20u: { return coverage_row_bits(5u, row); }
+        case 21u: { return coverage_row_bits(6u, row); }
+        case 22u: { return coverage_row_bits(7u, row); }
+        case 23u: { return coverage_row_bits(8u, row); }
+        case 24u: { return coverage_row_bits(9u, row); }
+        case 25u: { return coverage_row_bits(10u, row); }
+        case 26u: { return coverage_row_bits(11u, row); }
+        case 27u: { return coverage_row_bits(12u, row); }
+        case 28u: { return coverage_row_bits(13u, row); }
+        case 29u: { return coverage_row_bits(14u, row); }
+        case 30u: { return coverage_row_bits(15u, row); }
         case 31u: { return lock_open[row]; }
         case 32u: { return lock_closed[row]; }
         case 33u: { return tip_row_bits(0u, row); }
@@ -256,24 +254,33 @@ fn tip_row_bits(code: u32, row: u32) -> u32 {
     }
 }
 
-fn texture_on(code: u32, x: i32, y: i32) -> bool {
-    switch code {
-        case 0u: { return true; }
-        case 1u: { return ((x + y) & 1) == 0; }
-        case 2u: {
-            return (((x & 3) == 0) && ((y & 3) == 0)) ||
-                ((((x + 2) & 3) == 0) && (((y + 2) & 3) == 0));
-        }
-        case 3u: {
-            return (((x & 7) == 0) && ((y & 7) == 0)) ||
-                ((((x + 4) & 7) == 0) && (((y + 4) & 7) == 0));
-        }
-        case 4u: { return ((x - y) & 3) == 0; }
-        case 5u: { return ((x + y) & 3) == 0; }
-        case 6u: { return (x & 1) != 0; }
-        case 7u: { return (y & 1) != 0; }
-        default: { return true; }
+fn coverage_on(code: u32, x: i32, y: i32) -> bool {
+    return bayer_rank(u32(x & 3), u32(y & 3)) >= min(code, 15u);
+}
+
+fn stamp_local(doc: vec2<f32>, stamp: vec2<f32>, diameter: f32) -> vec2<f32> {
+    let d = max(diameter, 1.0);
+    let center = stamp + vec2<f32>(0.5, 0.5);
+    let origin = center - vec2<f32>(d * 0.5, d * 0.5);
+    let pixel_center = floor(doc) + vec2<f32>(0.5, 0.5);
+    return ((pixel_center - origin) / d) * 8.0;
+}
+
+fn stamp_on(in: StampVertex) -> bool {
+    let local = stamp_local(in.doc, in.stamp, in.diameter);
+    if local.x < 0.0 || local.y < 0.0 || local.x >= 8.0 || local.y >= 8.0 {
+        return false;
     }
+
+    let ix = u32(floor(local.x));
+    let iy = u32(floor(local.y));
+    if in.diameter > 1.5 {
+        let bits = tip_row_bits(u32(in.tip + 0.5), iy);
+        if ((bits >> (7u - ix)) & 1u) == 0u {
+            return false;
+        }
+    }
+    return coverage_on(u32(in.coverage + 0.5), i32(floor(in.doc.x)), i32(floor(in.doc.y)));
 }
 
 @vertex
@@ -322,7 +329,7 @@ fn fs_composite(in: CompositeVertex) -> @location(0) vec4<f32> {
             luma = mix(luma, 0.0, ink * opacity);
         }
     }
-    return mono(luma, in.position.xy);
+    return mono(luma, in.uv * frame.document_size);
 }
 
 @vertex
@@ -330,7 +337,7 @@ fn vs_stamp(@builtin(vertex_index) vertex_index: u32,
     @location(0) stamp: vec4<f32>,
     @location(1) attrs: vec4<f32>) -> StampVertex {
     let c = corner(vertex_index);
-    let diameter = max(stamp.z + 1.0, 1.0);
+    let diameter = max(stamp.z, 1.0);
     let center = stamp.xy + vec2<f32>(0.5, 0.5);
     let p = center + ((c * diameter) - vec2<f32>(diameter * 0.5));
     let ndc = vec2<f32>(
@@ -339,30 +346,19 @@ fn vs_stamp(@builtin(vertex_index) vertex_index: u32,
     );
     var out: StampVertex;
     out.position = vec4<f32>(ndc, 0.0, 1.0);
-    out.local = c * 8.0;
-    out.size = stamp.z;
+    out.diameter = stamp.z;
     out.tone = stamp.w;
     out.tip = attrs.y;
-    out.texture = attrs.z;
+    out.coverage = attrs.z;
     out.doc = p;
+    out.stamp = stamp.xy;
     return out;
 }
 
 @fragment
 fn fs_stamp(in: StampVertex) -> @location(0) vec4<f32> {
-    let ix = u32(floor(in.local.x));
-    let iy = u32(floor(in.local.y));
-    if ix >= 8u || iy >= 8u {
+    if !stamp_on(in) {
         discard;
-    }
-    if in.size > 0.5 {
-        let bits = tip_row_bits(u32(in.tip + 0.5), iy);
-        if ((bits >> (7u - ix)) & 1u) == 0u {
-            discard;
-        }
-        if (!texture_on(u32(in.texture + 0.5), i32(floor(in.doc.x)), i32(floor(in.doc.y)))) {
-            discard;
-        }
     }
     return vec4<f32>(1.0 - clamp(in.tone, 0.0, 1.0), 0.0, 0.0, 1.0);
 }
@@ -372,17 +368,17 @@ fn vs_screen_stamp(@builtin(vertex_index) vertex_index: u32,
     @location(0) stamp: vec4<f32>,
     @location(1) attrs: vec4<f32>) -> StampVertex {
     let c = corner(vertex_index);
-    let diameter = max(stamp.z + 1.0, 1.0);
+    let diameter = max(stamp.z, 1.0);
     let center = stamp.xy + vec2<f32>(0.5, 0.5);
     let p = center + ((c * diameter) - vec2<f32>(diameter * 0.5));
     var out: StampVertex;
     out.position = logical_to_clip(document_to_screen(p));
-    out.local = c * 8.0;
-    out.size = stamp.z;
+    out.diameter = stamp.z;
     out.tone = stamp.w;
     out.tip = attrs.y;
-    out.texture = attrs.z;
+    out.coverage = attrs.z;
     out.doc = p;
+    out.stamp = stamp.xy;
     return out;
 }
 
@@ -403,19 +399,8 @@ fn fs_screen_stamp(in: StampVertex) -> @location(0) vec4<f32> {
         discard;
     }
 
-    let ix = u32(floor(in.local.x));
-    let iy = u32(floor(in.local.y));
-    if ix >= 8u || iy >= 8u {
+    if !stamp_on(in) {
         discard;
-    }
-    if in.size > 0.5 {
-        let bits = tip_row_bits(u32(in.tip + 0.5), iy);
-        if ((bits >> (7u - ix)) & 1u) == 0u {
-            discard;
-        }
-        if (!texture_on(u32(in.texture + 0.5), i32(floor(in.doc.x)), i32(floor(in.doc.y)))) {
-            discard;
-        }
     }
     return tone_for(in.tone, in.position.xy);
 }

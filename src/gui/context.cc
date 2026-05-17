@@ -13,7 +13,7 @@ ContextKind contextkind(const GuiState &state) {
         return ContextKind::kLayer;
     }
     if (gui::contains(state.layout.viewport, state.context_x, state.context_y)) {
-        return ContextKind::kCanvas;
+        return ContextKind::kWorkspace;
     }
     return ContextKind::kApp;
 }
