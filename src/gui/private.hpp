@@ -71,6 +71,18 @@ inline constexpr std::array<MenuCommand, 3> kLayerMenuCommands = {{
     {"name", MenuAction::kLayerRename},
 }};
 
+inline constexpr std::array<std::string_view, kToolDefs.size()> kToolNames = {{
+    "pen",
+    "brush",
+    "line",
+    "magic",
+    "rect",
+    "zoom",
+    "erase",
+}};
+static_assert(kToolDefs.size() <= kMaxTools);
+static_assert(kToolNames.size() == kToolDefs.size());
+
 [[nodiscard]] inline auto menucommands(u8 menu) -> std::span<const MenuCommand> {
     if (menu == kMiraMenu) {
         return std::span<const MenuCommand>(kMiraMenuCommands);
@@ -387,53 +399,33 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
 }
 
 [[nodiscard]] inline auto toolicon(ToolKind kind) -> Icon {
-    switch (kind) {
-    case ToolKind::kBrush:
-        return Icon::kBrush;
-    case ToolKind::kLine:
-        return Icon::kLine;
-    case ToolKind::kMagic:
-        return Icon::kMagic;
-    case ToolKind::kRect:
-        return Icon::kRect;
-    case ToolKind::kZoom:
-        return Icon::kZoom;
-    case ToolKind::kErase:
-        return Icon::kErase;
-    case ToolKind::kPen:
-    default:
-        return Icon::kPen;
-    }
+    return tooldef(kind).icon;
 }
 
 [[nodiscard]] inline auto f32abs(f32 value) -> f32 { return value < 0.0F ? -value : value; }
 
 [[nodiscard]] inline auto painttool(ToolKind kind) -> b8 {
-    return kind == ToolKind::kPen || kind == ToolKind::kBrush || kind == ToolKind::kLine ||
-           kind == ToolKind::kMagic || kind == ToolKind::kRect || kind == ToolKind::kErase;
+    return toolpaints(tooldef(kind));
 }
 
-[[nodiscard]] inline auto stroketool(ToolKind kind) -> b8 {
-    return kind == ToolKind::kPen || kind == ToolKind::kBrush || kind == ToolKind::kMagic ||
-           kind == ToolKind::kErase;
+[[nodiscard]] inline auto freehandtool(ToolKind kind) -> b8 {
+    return toolfreehand(tooldef(kind));
 }
 
-[[nodiscard]] inline auto shapetool(ToolKind kind) -> b8 {
-    return kind == ToolKind::kLine || kind == ToolKind::kRect;
+[[nodiscard]] inline auto drafttool(ToolKind kind) -> b8 {
+    return tooldraft(tooldef(kind));
 }
 
 [[nodiscard]] inline auto sizetool(ToolKind kind) -> b8 {
-    return kind == ToolKind::kBrush || kind == ToolKind::kLine || kind == ToolKind::kRect ||
-           kind == ToolKind::kErase;
+    return tooluses(tooldef(kind), kToolUsesSize);
 }
 
 [[nodiscard]] inline auto tiptool(ToolKind kind) -> b8 {
-    return sizetool(kind);
+    return tooluses(tooldef(kind), kToolUsesTip);
 }
 
 [[nodiscard]] inline auto coveragetool(ToolKind kind) -> b8 {
-    return kind == ToolKind::kBrush || kind == ToolKind::kLine || kind == ToolKind::kRect ||
-           kind == ToolKind::kErase;
+    return tooluses(tooldef(kind), kToolUsesCoverage);
 }
 
 [[nodiscard]] inline auto paintlayer(const GuiState &state) -> const Layer * {
@@ -445,27 +437,17 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
 }
 
 [[nodiscard]] inline auto painttone(ToolKind kind) -> Tone {
-    return kind == ToolKind::kErase || kind == ToolKind::kMagic ? Tone::kWhite : Tone::kBlack;
+    return tooldef(kind).ink == InkKind::kWhite ? Tone::kWhite : Tone::kBlack;
 }
 
 [[nodiscard]] inline auto stampsize(const GuiState &state, ToolKind kind) -> u8 {
-    if (kind == ToolKind::kPen) {
-        return 0;
-    }
-    if (kind == ToolKind::kMagic) {
-        return 7;
-    }
-    return state.cursize;
+    const ToolDef def = tooldef(kind);
+    return tooluses(def, kToolUsesSize) ? state.cursize : def.size;
 }
 
 [[nodiscard]] inline auto stamptip(const GuiState &state, ToolKind kind) -> u8 {
-    if (kind == ToolKind::kPen) {
-        return 0;
-    }
-    if (kind == ToolKind::kMagic) {
-        return 7;
-    }
-    return state.curtip;
+    const ToolDef def = tooldef(kind);
+    return tooluses(def, kToolUsesTip) ? state.curtip : def.tip;
 }
 
 [[nodiscard]] inline auto stampcoverage(const GuiState &state, ToolKind kind) -> u8 {

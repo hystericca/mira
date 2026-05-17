@@ -6,6 +6,7 @@
 
 #include "mira/base/table.hpp"
 #include "mira/draw/draw.hpp"
+#include "mira/gui/tool.hpp"
 #include "mira/types.hpp"
 
 namespace mira {
@@ -50,16 +51,6 @@ struct Layer {
     LayerKind kind = LayerKind::kInk;
 };
 static_assert(sizeof(Layer) == 24);
-
-enum class ToolKind : u8 {
-    kPen,
-    kBrush,
-    kLine,
-    kMagic,
-    kRect,
-    kZoom,
-    kErase,
-};
 
 struct Tool {
     u32 id = 0;

@@ -22,6 +22,7 @@ auto main() -> int {
     static_assert(sizeof(mira::IconDraw) == 32);
     static_assert(sizeof(mira::GpuFontGlyph) == 80);
     static_assert(sizeof(mira::GpuFont) == 7616);
+    static_assert(sizeof(mira::ToolDef) == 9);
     static_assert(sizeof(mira::Layer) == 24);
     static_assert(sizeof(mira::Tool) == 16);
     static_assert(sizeof(mira::Tip) == 4);
@@ -109,6 +110,27 @@ auto main() -> int {
     MIRA_TEST(mira::coverageicon(0) == mira::Icon::kCoverage16);
     MIRA_TEST(mira::coverageicon(7) == mira::Icon::kCoverage9);
     MIRA_TEST(mira::coverageicon(15) == mira::Icon::kCoverage1);
+    MIRA_TEST(mira::kToolDefs.size() == 7);
+    MIRA_TEST(mira::toolindex(mira::ToolKind::kErase) == 6);
+    const mira::ToolDef pen = mira::tooldef(mira::ToolKind::kPen);
+    MIRA_TEST(pen.ink == mira::InkKind::kBlack);
+    MIRA_TEST(pen.stroke == mira::StrokeKind::kFree);
+    MIRA_TEST(pen.trace == mira::TraceKind::kAccumulate);
+    MIRA_TEST(!mira::tooluses(pen, mira::kToolUsesSize));
+    const mira::ToolDef brush = mira::tooldef(mira::ToolKind::kBrush);
+    MIRA_TEST(mira::toolfreehand(brush));
+    MIRA_TEST(mira::tooluses(brush, mira::kToolUsesSize | mira::kToolUsesTip |
+                                        mira::kToolUsesCoverage));
+    const mira::ToolDef line = mira::tooldef(mira::ToolKind::kLine);
+    MIRA_TEST(line.stroke == mira::StrokeKind::kLine);
+    MIRA_TEST(mira::tooldraft(line));
+    const mira::ToolDef magic = mira::tooldef(mira::ToolKind::kMagic);
+    MIRA_TEST(magic.ink == mira::InkKind::kWhite);
+    MIRA_TEST(magic.size == 7);
+    MIRA_TEST(magic.tip == 7);
+    const mira::ToolDef zoom = mira::tooldef(mira::ToolKind::kZoom);
+    MIRA_TEST(!mira::toolpaints(zoom));
+    MIRA_TEST(zoom.action == mira::ToolAction::kZoom);
     MIRA_TEST(mira::add_icon(&packing, mira::Icon::kSize8, 9.0F, 10.0F, mira::Tone::kBlack,
                              0.25F));
     MIRA_TEST(packing.icons[1].scale == 0.25F);
@@ -128,6 +150,9 @@ auto main() -> int {
     static mira::GuiState gui;
     mira::guiinit(&gui);
     MIRA_TEST(gui.tools.size() == 7);
+    for (mira::usize index = 0; index < gui.tools.size(); ++index) {
+        MIRA_TEST(gui.tools[index].kind == mira::kToolDefs[index].kind);
+    }
     MIRA_TEST(mira::toolname(gui.tools[0]) == "pen");
     MIRA_TEST(mira::toolname(gui.tools[1]) == "brush");
     MIRA_TEST(mira::toolname(gui.tools[6]) == "erase");

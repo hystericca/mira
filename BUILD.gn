@@ -25,6 +25,7 @@ source_set("mira_core") {
     "include/mira/draw/draw.hpp",
     "include/mira/draw/font.hpp",
     "include/mira/gui/gui.hpp",
+    "include/mira/gui/tool.hpp",
     "include/mira/types.hpp",
     "src/draw/draw.cc",
     "src/draw/font.cc",

@@ -138,16 +138,19 @@ template <typename Emit> [[nodiscard]] b8 emitrect(f32 x0, f32 y0, f32 x1, f32 y
     state->draft_stamps.clear();
     state->draft_x = x;
     state->draft_y = y;
-    if (!state->draft_active || !shapetool(state->draft_kind)) {
+    if (!state->draft_active || !drafttool(state->draft_kind)) {
         return true;
     }
-    if (state->draft_kind == ToolKind::kLine) {
+    switch (tooldef(state->draft_kind).stroke) {
+    case StrokeKind::kLine:
         return draftline(state, state->draft_start_x, state->draft_start_y, x, y,
                          state->draft_kind);
-    }
-    if (state->draft_kind == ToolKind::kRect) {
+    case StrokeKind::kRect:
         return draftrect(state, state->draft_start_x, state->draft_start_y, x, y,
                          state->draft_kind);
+    case StrokeKind::kNone:
+    case StrokeKind::kFree:
+        break;
     }
     return true;
 }
@@ -457,7 +460,7 @@ b8 workmouse(GuiState *state, HitRecord hit, i32 x, i32 y, u8 button) {
     state->active_menu = kNoMenu;
     state->context_open = false;
     const ToolKind kind = toolkind(*state);
-    if (kind == ToolKind::kZoom) {
+    if (tooldef(kind).action == ToolAction::kZoom) {
         zoomat(state, x, y, -1);
         return true;
     }
@@ -473,9 +476,9 @@ b8 workmouse(GuiState *state, HitRecord hit, i32 x, i32 y, u8 button) {
             state->painting = true;
             state->last_paint_x = document_x;
             state->last_paint_y = document_y;
-            if (shapetool(kind)) {
+            if (drafttool(kind)) {
                 draftstart(state, *layer, kind, document_x, document_y);
-            } else if (stroketool(kind)) {
+            } else if (freehandtool(kind)) {
                 if (!mark(state, document_x, document_y, kind)) {
                     state->painting = false;
                 }
@@ -508,13 +511,13 @@ void workmove(GuiState *state, i32 x, i32 y, u8 buttons) {
         return;
     }
     const ToolKind kind = toolkind(*state);
-    if (shapetool(kind)) {
+    if (drafttool(kind)) {
         const f32 document_x = screen_to_paint_x(*state, x);
         const f32 document_y = screen_to_paint_y(*state, y);
         draftupdate(state, document_x, document_y);
         return;
     }
-    if (!stroketool(kind)) {
+    if (!freehandtool(kind)) {
         return;
     }
     const f32 document_x = screen_to_paint_x(*state, x);
@@ -532,7 +535,7 @@ void workup(GuiState *state, i32 x, i32 y) {
         return;
     }
     const ToolKind kind = toolkind(*state);
-    if (shapetool(kind)) {
+    if (drafttool(kind)) {
         if (contains(state->layout.viewport, x, y)) {
             const f32 document_x = screen_to_paint_x(*state, x);
             const f32 document_y = screen_to_paint_y(*state, y);
@@ -555,7 +558,7 @@ void workup(GuiState *state, i32 x, i32 y) {
 void workdraw(const GuiState &state, DrawList *draws) {
     const ToolKind active_tool = toolkind(state);
     if (state.hot_kind == HitKind::kViewport && painttool(active_tool) &&
-        !(state.painting && shapetool(active_tool))) {
+        !(state.painting && drafttool(active_tool))) {
         const f32 document_x = screen_to_paint_x(state, state.mouse_x);
         const f32 document_y = screen_to_paint_y(state, state.mouse_y);
         const Rect preview = stampviewrect(state, document_x, document_y, active_tool);

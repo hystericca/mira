@@ -72,13 +72,10 @@ void guiinit(GuiState *state) {
     state->draft_kind = ToolKind::kPen;
     state->draft_texture_slot = 0;
 
-    impl::pushtool(state, 1, "pen", ToolKind::kPen, true);
-    impl::pushtool(state, 2, "brush", ToolKind::kBrush, false);
-    impl::pushtool(state, 3, "line", ToolKind::kLine, false);
-    impl::pushtool(state, 4, "magic", ToolKind::kMagic, false);
-    impl::pushtool(state, 5, "rect", ToolKind::kRect, false);
-    impl::pushtool(state, 6, "zoom", ToolKind::kZoom, false);
-    impl::pushtool(state, 7, "erase", ToolKind::kErase, false);
+    for (usize index = 0; index < kToolDefs.size(); ++index) {
+        impl::pushtool(state, static_cast<u32>(index + 1U), impl::kToolNames[index],
+                       kToolDefs[index].kind, index == 0);
+    }
     for (u8 index = 0; index < 8; ++index) {
         impl::pushtip(state, index, index == state->curtip);
     }
