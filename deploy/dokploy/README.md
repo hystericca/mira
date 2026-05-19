@@ -30,7 +30,7 @@ Create a Docker Compose app:
 - Source: GitHub
 - Repository: `hystericca/mira`
 - Branch: `main`
-- Compose path: `deploy/dokploy/docker-compose.yml`
+- Compose path: `docker-compose.yml`
 - Deployment type: Docker Compose, not Stack
 - Server: the DigitalOcean `aqua` server
 
