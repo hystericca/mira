@@ -804,9 +804,9 @@ auto Web::make_layer_texture() -> b8 {
     texture_descriptor.size = {document_width, document_height, static_cast<u32>(kMaxLayers)};
     texture_descriptor.dimension = wgpu::TextureDimension::e2D;
     texture_descriptor.format = wgpu::TextureFormat::R8Unorm;
-    texture_descriptor.usage =
-        wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding |
-        wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::CopySrc;
+    texture_descriptor.usage = wgpu::TextureUsage::RenderAttachment |
+                               wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst |
+                               wgpu::TextureUsage::CopySrc;
     layer_texture_ = device_.CreateTexture(&texture_descriptor);
     if (layer_texture_ == nullptr) {
         return false;

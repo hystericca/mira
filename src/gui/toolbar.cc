@@ -79,10 +79,22 @@ Icon sizeicon(u8 index) {
 
 Icon coverageicon(u8 index) {
     static constexpr std::array<Icon, kMaxCoverages> kIcons = {{
-        Icon::kCoverage16, Icon::kCoverage15, Icon::kCoverage14, Icon::kCoverage13,
-        Icon::kCoverage12, Icon::kCoverage11, Icon::kCoverage10, Icon::kCoverage9,
-        Icon::kCoverage8,  Icon::kCoverage7,  Icon::kCoverage6,  Icon::kCoverage5,
-        Icon::kCoverage4,  Icon::kCoverage3,  Icon::kCoverage2,  Icon::kCoverage1,
+        Icon::kCoverage16,
+        Icon::kCoverage15,
+        Icon::kCoverage14,
+        Icon::kCoverage13,
+        Icon::kCoverage12,
+        Icon::kCoverage11,
+        Icon::kCoverage10,
+        Icon::kCoverage9,
+        Icon::kCoverage8,
+        Icon::kCoverage7,
+        Icon::kCoverage6,
+        Icon::kCoverage5,
+        Icon::kCoverage4,
+        Icon::kCoverage3,
+        Icon::kCoverage2,
+        Icon::kCoverage1,
     }};
     if (index >= kIcons.size()) {
         return Icon::kCoverage16;
@@ -136,12 +148,14 @@ void placebrush(GuiState *state) {
 void clampbrush(GuiState *state, f32 height) {
     state->brush_x = std::clamp(state->brush_x, 0.0F,
                                 std::max(0.0F, state->layout.window.width - kBrushPanelWidth));
-    state->brush_y = std::clamp(state->brush_y, 0.0F,
-                                std::max(0.0F, state->layout.window.height - height));
+    state->brush_y =
+        std::clamp(state->brush_y, 0.0F, std::max(0.0F, state->layout.window.height - height));
 }
 
 [[nodiscard]] Rect brushpanel(const GuiState &state) {
-    return {.x = state.brush_x, .y = state.brush_y, .width = kBrushPanelWidth,
+    return {.x = state.brush_x,
+            .y = state.brush_y,
+            .width = kBrushPanelWidth,
             .height = brushheight(state)};
 }
 
@@ -234,7 +248,7 @@ void drawtipstamp(DrawList *draws, u8 tip, f32 center_x, f32 center_y, Tone ink,
 
 void drawcleanstroke(DrawList *draws, Rect row, u8 size, Tone ink, b8 square) {
     static constexpr std::array<f32, 8> kWave = {-1.0F, -2.0F, -1.0F, 1.0F,
-                                                2.0F,  1.0F,  0.0F, -1.0F};
+                                                 2.0F,  1.0F,  0.0F,  -1.0F};
     const f32 x0 = row.x + 48.0F;
     const f32 y0 = row.y + (row.height * 0.5F);
     const f32 step = 11.5F;
@@ -253,7 +267,7 @@ void drawcleanstroke(DrawList *draws, Rect row, u8 size, Tone ink, b8 square) {
 
 void drawslashstroke(DrawList *draws, Rect row, b8 rising, Tone ink) {
     static constexpr std::array<f32, 8> kWave = {-1.0F, -2.0F, -1.0F, 1.0F,
-                                                2.0F,  1.0F,  0.0F, -1.0F};
+                                                 2.0F,  1.0F,  0.0F,  -1.0F};
     const f32 x0 = row.x + 48.0F;
     const f32 y0 = row.y + (row.height * 0.5F);
     const f32 step = 11.5F;
@@ -272,7 +286,7 @@ void drawslashstroke(DrawList *draws, Rect row, b8 rising, Tone ink) {
 
 void drawrakestroke(DrawList *draws, Rect row, Tone ink) {
     static constexpr std::array<f32, 8> kWave = {-1.0F, -2.0F, -1.0F, 1.0F,
-                                                2.0F,  1.0F,  0.0F, -1.0F};
+                                                 2.0F,  1.0F,  0.0F,  -1.0F};
     const f32 x0 = row.x + 48.0F;
     const f32 y0 = row.y + (row.height * 0.5F);
     const f32 step = 11.5F;
@@ -289,10 +303,10 @@ void drawrakestroke(DrawList *draws, Rect row, Tone ink) {
 }
 
 void drawscatterstroke(DrawList *draws, Rect row, Tone ink) {
-    static constexpr std::array<f32, 12> kDotsX = {49.0F, 58.0F, 65.0F, 73.0F, 82.0F, 89.0F,
-                                                  98.0F, 106.0F, 114.0F, 121.0F, 130.0F, 139.0F};
+    static constexpr std::array<f32, 12> kDotsX = {49.0F, 58.0F,  65.0F,  73.0F,  82.0F,  89.0F,
+                                                   98.0F, 106.0F, 114.0F, 121.0F, 130.0F, 139.0F};
     static constexpr std::array<f32, 12> kDotsY = {10.0F, 13.0F, 9.0F,  12.0F, 11.0F, 14.0F,
-                                                  9.0F,  12.0F, 10.0F, 13.0F, 9.0F,  12.0F};
+                                                   9.0F,  12.0F, 10.0F, 13.0F, 9.0F,  12.0F};
     for (usize index = 0; index < kDotsX.size(); ++index) {
         drawrect(draws,
                  {.x = row.x + kDotsX[index],
@@ -557,9 +571,8 @@ void tooldraw(const GuiState &state, DrawList *draws) {
             if (inverted) {
                 drawrect(draws, row, Tone::kBlack);
             }
-            drawtipstamp(draws, tip.index, row.x + (row.width * 0.5F),
-                         row.y + (row.height * 0.5F), inverted ? Tone::kWhite : Tone::kBlack,
-                         1.35F);
+            drawtipstamp(draws, tip.index, row.x + (row.width * 0.5F), row.y + (row.height * 0.5F),
+                         inverted ? Tone::kWhite : Tone::kBlack, 1.35F);
         }
     }
 
@@ -575,8 +588,7 @@ void tooldraw(const GuiState &state, DrawList *draws) {
         const Coverage *coverage = coveragecur(state);
         const u8 index = coverage == nullptr ? 0 : coverage->index;
         drawicon(draws, coverageicon(index), state.layout.brush_button.x + 4.0F,
-                 state.layout.brush_button.y + 4.0F, active ? Tone::kWhite : Tone::kBlack,
-                 1.5F);
+                 state.layout.brush_button.y + 4.0F, active ? Tone::kWhite : Tone::kBlack, 1.5F);
     }
 }
 
@@ -589,9 +601,10 @@ void toolpopupdraw(const GuiState &state, DrawList *draws) {
     drawplane(draws, DrawPlane::kMenu);
     const f32 t = smooth(state.brush_t);
     const Rect panel = state.layout.brush_panel;
-    drawrect(draws,
-             {.x = panel.x + 2.0F, .y = panel.y + 2.0F, .width = panel.width, .height = panel.height},
-             Tone::kMid);
+    drawrect(
+        draws,
+        {.x = panel.x + 2.0F, .y = panel.y + 2.0F, .width = panel.width, .height = panel.height},
+        Tone::kMid);
     drawrect(draws, panel, Tone::kWhite);
     drawrect(draws, brushtitle(state), Tone::kBlack);
     drawstroke(draws, panel, Tone::kBlack);
@@ -674,8 +687,7 @@ void toolpopupdraw(const GuiState &state, DrawList *draws) {
                 drawstroke(draws, row, Tone::kBlack);
             }
         }
-        drawstroke(draws, {.x = row.x, .y = row.y, .width = row.width, .height = 1.0F},
-                   Tone::kMid);
+        drawstroke(draws, {.x = row.x, .y = row.y, .width = row.width, .height = 1.0F}, Tone::kMid);
         const Tone ink = selected ? Tone::kWhite : Tone::kBlack;
         drawtipstamp(draws, tip.index, row.x + 16.0F, row.y + (row.height * 0.5F), ink, 1.25F);
         drawtippreview(draws, row, tip.index, state.cursize, state.curcoverage, ink);

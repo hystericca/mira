@@ -151,10 +151,8 @@ namespace {
 
 [[nodiscard]] auto bayer4(u32 x, u32 y) -> f32 {
     constexpr std::array<f32, 16> cells = {
-        0.0F, 8.0F,  2.0F,  10.0F,
-        12.0F, 4.0F, 14.0F, 6.0F,
-        3.0F, 11.0F, 1.0F,  9.0F,
-        15.0F, 7.0F, 13.0F, 5.0F,
+        0.0F, 8.0F,  2.0F, 10.0F, 12.0F, 4.0F, 14.0F, 6.0F,
+        3.0F, 11.0F, 1.0F, 9.0F,  15.0F, 7.0F, 13.0F, 5.0F,
     };
     return (cells[((y & 3U) * 4U) + (x & 3U)] + 0.5F) / 16.0F;
 }
@@ -290,22 +288,22 @@ void Web::export_png() {
     queue_.Submit(1, &commands);
 
     instance_.WaitAny(
-        readback.MapAsync(
-            wgpu::MapMode::Read, 0, read_size, wgpu::CallbackMode::WaitAnyOnly,
-            [&](wgpu::MapAsyncStatus status, wgpu::StringView) {
-                if (status != wgpu::MapAsyncStatus::Success) {
-                    mira_export_failed();
-                    return;
-                }
-                const auto *mapped = static_cast<const u8 *>(readback.GetConstMappedRange());
-                if (mapped == nullptr) {
-                    mira_export_failed();
-                    readback.Unmap();
-                    return;
-                }
-                compose(mapped);
-                readback.Unmap();
-            }),
+        readback.MapAsync(wgpu::MapMode::Read, 0, read_size, wgpu::CallbackMode::WaitAnyOnly,
+                          [&](wgpu::MapAsyncStatus status, wgpu::StringView) {
+                              if (status != wgpu::MapAsyncStatus::Success) {
+                                  mira_export_failed();
+                                  return;
+                              }
+                              const auto *mapped =
+                                  static_cast<const u8 *>(readback.GetConstMappedRange());
+                              if (mapped == nullptr) {
+                                  mira_export_failed();
+                                  readback.Unmap();
+                                  return;
+                              }
+                              compose(mapped);
+                              readback.Unmap();
+                          }),
         std::numeric_limits<u64>::max());
 }
 

@@ -1,0 +1,33 @@
+name: mira-web
+
+services:
+  web:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    expose:
+      - "8080"
+    volumes:
+      - ${MIRA_WEB_ROOT:-/opt/mira-web}:/srv/mira-web:ro
+      - ${MIRA_WEB_ROOT:-/opt/mira-web}/Caddyfile:/etc/caddy/Caddyfile:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.mira-web-http.rule=Host(`${MIRA_DOMAIN:-mira.hystericca.dev}`)"
+      - "traefik.http.routers.mira-web-http.entrypoints=web"
+      - "traefik.http.routers.mira-web-http.middlewares=mira-web-https"
+      - "traefik.http.middlewares.mira-web-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.mira-web.rule=Host(`${MIRA_DOMAIN:-mira.hystericca.dev}`)"
+      - "traefik.http.routers.mira-web.entrypoints=websecure"
+      - "traefik.http.routers.mira-web.tls.certResolver=letsencrypt"
+      - "traefik.http.services.mira-web.loadbalancer.server.port=8080"
+
+networks:
+  dokploy-network:
+    external: true

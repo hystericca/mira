@@ -296,8 +296,7 @@ fn vs_composite(@builtin(vertex_index) vertex_index: u32) -> CompositeVertex {
 
 @fragment
 fn fs_composite(in: CompositeVertex) -> @location(0) vec4<f32> {
-    let inside_viewport =
-        in.screen.x >= frame.viewport_rect.x &&
+    let inside_viewport = in.screen.x >= frame.viewport_rect.x &&
         in.screen.y >= frame.viewport_rect.y &&
         in.screen.x < frame.viewport_rect.z &&
         in.screen.y < frame.viewport_rect.w;
@@ -385,13 +384,11 @@ fn vs_screen_stamp(@builtin(vertex_index) vertex_index: u32,
 @fragment
 fn fs_screen_stamp(in: StampVertex) -> @location(0) vec4<f32> {
     let screen = document_to_screen(in.doc);
-    let in_view =
-        screen.x >= frame.viewport_rect.x &&
+    let in_view = screen.x >= frame.viewport_rect.x &&
         screen.y >= frame.viewport_rect.y &&
         screen.x < frame.viewport_rect.z &&
         screen.y < frame.viewport_rect.w;
-    let in_doc =
-        in.doc.x >= 0.0 &&
+    let in_doc = in.doc.x >= 0.0 &&
         in.doc.y >= 0.0 &&
         in.doc.x < frame.document_size.x &&
         in.doc.y < frame.document_size.y;

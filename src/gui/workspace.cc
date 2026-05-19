@@ -108,9 +108,8 @@ template <typename Emit> [[nodiscard]] b8 emitrect(f32 x0, f32 y0, f32 x1, f32 y
     if (!painttool(kind) || !in_document(*state, document_x, document_y)) {
         return true;
     }
-    return state->draft_stamps.push(
-        stampfor(*state, document_x, document_y, kind,
-                 static_cast<f32>(state->draft_texture_slot)));
+    return state->draft_stamps.push(stampfor(*state, document_x, document_y, kind,
+                                             static_cast<f32>(state->draft_texture_slot)));
 }
 
 [[nodiscard]] b8 draftline(GuiState *state, f32 x0, f32 y0, f32 x1, f32 y1, ToolKind kind) {
@@ -130,8 +129,7 @@ template <typename Emit> [[nodiscard]] b8 emitrect(f32 x0, f32 y0, f32 x1, f32 y
 }
 
 [[nodiscard]] b8 draftrect(GuiState *state, f32 x0, f32 y0, f32 x1, f32 y1, ToolKind kind) {
-    return emitrect(x0, y0, x1, y1,
-                    [&](f32 x, f32 y) { return draftmark(state, x, y, kind); });
+    return emitrect(x0, y0, x1, y1, [&](f32 x, f32 y) { return draftmark(state, x, y, kind); });
 }
 
 [[nodiscard]] b8 draftbuild(GuiState *state, f32 x, f32 y) {
@@ -250,8 +248,8 @@ b8 mark(GuiState *state, f32 document_x, f32 document_y, ToolKind kind) {
     if (!painttool(kind) || layer == nullptr || !in_document(*state, document_x, document_y)) {
         return false;
     }
-    const PaintStamp stamp = stampfor(*state, document_x, document_y, kind,
-                                      static_cast<f32>(layer->texture_slot));
+    const PaintStamp stamp =
+        stampfor(*state, document_x, document_y, kind, static_cast<f32>(layer->texture_slot));
     if (state->recording_stroke && state->stroke_stamps.size() >= state->stroke_stamps.capacity()) {
         state->stroke_stamps.overflowed = true;
         historycancel(state, false, true);

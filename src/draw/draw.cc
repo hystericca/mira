@@ -72,8 +72,7 @@ void DrawList::begin_plane(DrawPlane next) {
 }
 
 usize DrawList::upload_bytes() const {
-    return rects.byte_size() + glyphs.byte_size() + icons.byte_size() +
-           guide_stamps.byte_size();
+    return rects.byte_size() + glyphs.byte_size() + icons.byte_size() + guide_stamps.byte_size();
 }
 
 u32 DrawList::overflow_count() const {

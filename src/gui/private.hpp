@@ -398,23 +398,15 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
     drawtext(draws, layername(layer), x, y, tone);
 }
 
-[[nodiscard]] inline auto toolicon(ToolKind kind) -> Icon {
-    return tooldef(kind).icon;
-}
+[[nodiscard]] inline auto toolicon(ToolKind kind) -> Icon { return tooldef(kind).icon; }
 
 [[nodiscard]] inline auto f32abs(f32 value) -> f32 { return value < 0.0F ? -value : value; }
 
-[[nodiscard]] inline auto painttool(ToolKind kind) -> b8 {
-    return toolpaints(tooldef(kind));
-}
+[[nodiscard]] inline auto painttool(ToolKind kind) -> b8 { return toolpaints(tooldef(kind)); }
 
-[[nodiscard]] inline auto freehandtool(ToolKind kind) -> b8 {
-    return toolfreehand(tooldef(kind));
-}
+[[nodiscard]] inline auto freehandtool(ToolKind kind) -> b8 { return toolfreehand(tooldef(kind)); }
 
-[[nodiscard]] inline auto drafttool(ToolKind kind) -> b8 {
-    return tooldraft(tooldef(kind));
-}
+[[nodiscard]] inline auto drafttool(ToolKind kind) -> b8 { return tooldraft(tooldef(kind)); }
 
 [[nodiscard]] inline auto sizetool(ToolKind kind) -> b8 {
     return tooluses(tooldef(kind), kToolUsesSize);
@@ -506,13 +498,12 @@ inline void update_document_rect(GuiState *state) {
 
 inline void center_document(GuiState *state) {
     state->view.zoom = kInitialViewZoom;
-    state->view.x =
-        (static_cast<f32>(state->document.width) - (state->layout.viewport.width / state->view.zoom)) *
-        0.5F;
-    state->view.y =
-        (static_cast<f32>(state->document.height) -
-         (state->layout.viewport.height / state->view.zoom)) *
-        0.5F;
+    state->view.x = (static_cast<f32>(state->document.width) -
+                     (state->layout.viewport.width / state->view.zoom)) *
+                    0.5F;
+    state->view.y = (static_cast<f32>(state->document.height) -
+                     (state->layout.viewport.height / state->view.zoom)) *
+                    0.5F;
     state->view_initialized = true;
     update_document_rect(state);
 }
