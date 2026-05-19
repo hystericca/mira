@@ -4,7 +4,7 @@
 }
 
 :8080 {
-	root * /srv/mira-web/current
+	root * /srv/mira-web
 	encode zstd gzip
 
 	header {

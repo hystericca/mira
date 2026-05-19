@@ -6,7 +6,8 @@
     "check": "make check",
     "web": "make web",
     "release": "make release",
-    "deploy:web": "tools/deploy_web.sh",
+    "dist:web": "tools/build_web_dist.sh",
+    "deploy:web": "tools/build_web_dist.sh",
     "serve": "MIRA_WEB_ROOT=${MIRA_WEB_ROOT:-$HOME/Developer/dawn/out/mira-debug/wasm} ant tools/serve.ts",
     "clean": "make clean"
   },
