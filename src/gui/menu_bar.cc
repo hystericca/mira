@@ -43,9 +43,10 @@ void doaction(GuiState *state, MenuAction action) {
         dialogopen(state);
         break;
     case MenuAction::kFileImport:
+        pushaction(state, GuiActionKind::kOpenImagePicker);
         break;
     case MenuAction::kFileExport:
-        state->export_requested = true;
+        pushaction(state, GuiActionKind::kExportPng);
         break;
     case MenuAction::kLayerNew:
         if (layeradd(state, {})) {

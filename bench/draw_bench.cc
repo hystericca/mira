@@ -81,8 +81,8 @@ auto main() -> int {
     constexpr mira::i32 kHeight = 720;
     constexpr mira::i32 kFrames = 200000;
 
-    mira::DrawList list;
-    mira::GuiState gui;
+    static mira::DrawList list;
+    static mira::GuiState gui;
     const mira::Screen screen = mira::screen_for(kWidth, kHeight);
     mira::guiframe(&gui, screen, {}, &list);
 
@@ -119,7 +119,7 @@ auto main() -> int {
     PrintMetric("rect_count", list.rects.size());
     PrintMetric("glyph_count", list.glyphs.size());
     PrintMetric("icon_count", list.icons.size());
-    PrintMetric("guide_stamp_count", list.guide_stamps.size());
+    PrintMetric("preview_stamp_count", list.preview_stamps.size());
     PrintMetric("allocation_calls", g_allocation_calls.load(std::memory_order_relaxed));
     PrintMetric("allocation_bytes", g_allocation_bytes.load(std::memory_order_relaxed));
     PrintMetric("overflow_count", list.overflow_count());

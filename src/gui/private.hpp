@@ -215,13 +215,13 @@ inline void setlayerflag(Layer *layer, u8 flag, b8 enabled) {
 }
 
 [[nodiscard]] inline auto mklayer(u32 id, std::string_view name, LayerKind kind, u8 opacity,
-                                  b8 visible, b8 locked, b8 selected, u8 texture_slot, b8 bottom)
+                                  b8 visible, b8 locked, b8 selected, u8 layer_slot, b8 bottom)
     -> Layer {
     Layer layer = {};
     layer.id = id;
     layer.flags = 0;
     layer.opacity_u8 = opacity;
-    layer.texture_slot = texture_slot;
+    layer.layer_slot = layer_slot;
     layer.kind = kind;
     setlayerflag(&layer, kLayerVisible, visible);
     setlayerflag(&layer, kLayerLocked, locked);
@@ -232,9 +232,9 @@ inline void setlayerflag(Layer *layer, u8 flag, b8 enabled) {
 }
 
 inline void pushlayer(GuiState *state, u32 id, std::string_view name, LayerKind kind, u8 opacity,
-                      b8 visible, b8 locked, b8 selected, u8 texture_slot, b8 bottom) {
+                      b8 visible, b8 locked, b8 selected, u8 layer_slot, b8 bottom) {
     (void)state->layers.push(
-        mklayer(id, name, kind, opacity, visible, locked, selected, texture_slot, bottom));
+        mklayer(id, name, kind, opacity, visible, locked, selected, layer_slot, bottom));
 }
 
 inline void markclear(GuiState *state, u8 slot) {
@@ -248,7 +248,7 @@ inline void markclear(GuiState *state, u8 slot) {
 
 [[nodiscard]] inline auto slotused(const GuiState &state, u8 slot) -> b8 {
     for (const Layer &layer : state.layers.span()) {
-        if (layer.texture_slot == slot) {
+        if (layer.layer_slot == slot) {
             return true;
         }
     }
@@ -377,6 +377,10 @@ inline void addhit(GuiState *state, Rect rect, HitKind kind, u8 index, u16 prior
     (void)state->hits.push({.rect = rect, .kind = kind, .index = index, .priority = priority});
 }
 
+inline void pushaction(GuiState *state, GuiActionKind kind) {
+    (void)state->actions.push({.kind = kind});
+}
+
 inline void drawrect(DrawList *draws, Rect rect, Tone tone) { (void)add_rect(draws, rect, tone); }
 
 inline void drawplane(DrawList *draws, DrawPlane plane) { draws->begin_plane(plane); }
@@ -447,6 +451,15 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
         return 0;
     }
     return state.curcoverage;
+}
+
+[[nodiscard]] inline auto brushspec(const GuiState &state, ToolKind kind) -> BrushSpec {
+    return {
+        .diameter = static_cast<f32>(stampsize(state, kind)) + 1.0F,
+        .tone = painttone(kind),
+        .tip = stamptip(state, kind),
+        .coverage = stampcoverage(state, kind),
+    };
 }
 
 [[nodiscard]] inline auto toolkind(const GuiState &state) -> ToolKind {

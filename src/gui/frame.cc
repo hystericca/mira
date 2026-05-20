@@ -170,8 +170,9 @@ void guidraw(const GuiState &state, DrawList *draws) {
 }
 
 void guiframe(GuiState *state, Screen screen, std::span<const InputEvent> input, DrawList *draws) {
-    state->paint_stamps.clear();
+    state->paint_delta.clear();
     state->clear_slots.clear();
+    state->actions.clear();
     guilayout(state, screen);
     guievent(state, input);
     if (!input.empty()) {

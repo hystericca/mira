@@ -17,6 +17,17 @@ if [[ ! -d "$DAWN_ROOT/.git" ]]; then
   exit 1
 fi
 
+if [[ ! -x "$DAWN_ROOT/third_party/emsdk/upstream/emscripten/em++" ]]; then
+  echo "missing Emscripten in Dawn checkout; run gclient sync in $DAWN_ROOT" >&2
+  exit 1
+fi
+
+if [[ ! -f "$DAWN_ROOT/third_party/emdawnwebgpu/pkg/webgpu/src/library_webgpu.js" ||
+      ! -f "$DAWN_ROOT/third_party/emdawnwebgpu/pkg/webgpu/src/webgpu.cpp" ]]; then
+  echo "missing emdawnwebgpu sources in Dawn checkout; run gclient sync in $DAWN_ROOT" >&2
+  exit 1
+fi
+
 MIRA_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [[ -L "$DAWN_ROOT/mira" || ! -e "$DAWN_ROOT/mira" ]]; then
   rm -f "$DAWN_ROOT/mira"

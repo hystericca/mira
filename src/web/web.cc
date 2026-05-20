@@ -18,8 +18,8 @@ constexpr char kCanvasSelector[] = "#canvas";
 constexpr usize kRectBufferBytes = kMaxRects * sizeof(RectDraw);
 constexpr usize kGlyphBufferBytes = kMaxGlyphs * sizeof(GlyphDraw);
 constexpr usize kIconBufferBytes = kMaxIcons * sizeof(IconDraw);
-constexpr usize kGuideStampBufferBytes = kMaxGuideStamps * sizeof(PaintStamp);
-constexpr usize kStampBufferBytes = kMaxPaintStamps * sizeof(PaintStamp);
+constexpr usize kPreviewStampBufferBytes = kMaxPreviewStamps * sizeof(PaintStamp);
+constexpr usize kStampBufferBytes = kMaxPaintDelta * sizeof(PaintStamp);
 constexpr usize kLayerBufferBytes = kMaxLayers * sizeof(f32) * 4U;
 constexpr usize kInputTerminalReserve = 8;
 
@@ -159,7 +159,7 @@ void Web::frame() {
     }
 
     if (device_lost_ || !resize() || rect_pipeline_ == nullptr || glyph_pipeline_ == nullptr ||
-        icon_pipeline_ == nullptr || guide_stamp_pipeline_ == nullptr ||
+        icon_pipeline_ == nullptr || preview_stamp_pipeline_ == nullptr ||
         composite_pipeline_ == nullptr || stamp_pipeline_ == nullptr || bind_group_ == nullptr ||
         layer_bind_group_ == nullptr) {
         return;
@@ -179,7 +179,7 @@ void Web::frame() {
     }
     encode_layer_clears(encoder);
     encode_paint(encoder);
-    const b8 has_offscreen_work = !gui_.clear_slots.empty() || !gui_.paint_stamps.empty();
+    const b8 has_offscreen_work = !gui_.clear_slots.empty() || !gui_.paint_delta.empty();
 
     wgpu::SurfaceTexture surface_texture = {};
     surface_.GetCurrentTexture(&surface_texture);
@@ -282,9 +282,6 @@ auto Web::on_mouse_down(int, const EmscriptenMouseEvent *event, void *user_data)
     auto *app = static_cast<Web *>(user_data);
     if (app != nullptr && event != nullptr) {
         focus_canvas();
-        if (app->menu_action_at(*event) == MenuAction::kFileImport) {
-            app->open_image_picker();
-        }
         app->push_mouse_event(InputKind::kMouseDown, *event);
     }
     return true;
@@ -406,14 +403,6 @@ auto Web::mouse_point(const EmscriptenMouseEvent &event) const -> MousePoint {
     const i32 y = std::clamp(static_cast<i32>(std::floor(physical_y / screen_.scale)), 0,
                              std::max(0, screen_.height - 1));
     return {.x = x, .y = y, .ok = true};
-}
-
-auto Web::menu_action_at(const EmscriptenMouseEvent &event) const -> MenuAction {
-    const MousePoint point = mouse_point(event);
-    if (!point.ok) {
-        return MenuAction::kNone;
-    }
-    return menuaction(gui_, guihit(gui_, point.x, point.y));
 }
 
 void Web::push_mouse_event(InputKind kind, const EmscriptenMouseEvent &event) {
@@ -601,14 +590,14 @@ auto Web::make_pipeline() -> b8 {
     rect_buffer_ = make_vertex_buffer(device_, kRectBufferBytes);
     glyph_buffer_ = make_vertex_buffer(device_, kGlyphBufferBytes);
     icon_buffer_ = make_vertex_buffer(device_, kIconBufferBytes);
-    guide_stamp_buffer_ = make_vertex_buffer(device_, kGuideStampBufferBytes);
+    preview_stamp_buffer_ = make_vertex_buffer(device_, kPreviewStampBufferBytes);
     stamp_buffer_ = make_vertex_buffer(device_, kStampBufferBytes);
     wgpu::BufferDescriptor layer_buffer_descriptor = {};
     layer_buffer_descriptor.size = kLayerBufferBytes;
     layer_buffer_descriptor.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
     layer_buffer_ = device_.CreateBuffer(&layer_buffer_descriptor);
     if (rect_buffer_ == nullptr || glyph_buffer_ == nullptr || icon_buffer_ == nullptr ||
-        guide_stamp_buffer_ == nullptr || stamp_buffer_ == nullptr || layer_buffer_ == nullptr) {
+        preview_stamp_buffer_ == nullptr || stamp_buffer_ == nullptr || layer_buffer_ == nullptr) {
         return false;
     }
     if (!make_layer_texture()) {
@@ -740,7 +729,7 @@ auto Web::make_pipeline() -> b8 {
     rect_pipeline_ = make_render_pipeline("vs_rect", "fs_rect");
     glyph_pipeline_ = make_render_pipeline("vs_glyph", "fs_glyph");
     icon_pipeline_ = make_render_pipeline("vs_icon", "fs_icon");
-    guide_stamp_pipeline_ = make_render_pipeline("vs_screen_stamp", "fs_screen_stamp");
+    preview_stamp_pipeline_ = make_render_pipeline("vs_screen_stamp", "fs_screen_stamp");
 
     wgpu::ColorTargetState composite_color_target = {};
     composite_color_target.format = surface_format_;
@@ -789,7 +778,7 @@ auto Web::make_pipeline() -> b8 {
     stamp_pipeline_ = device_.CreateRenderPipeline(&stamp_descriptor);
 
     return rect_pipeline_ != nullptr && glyph_pipeline_ != nullptr && icon_pipeline_ != nullptr &&
-           guide_stamp_pipeline_ != nullptr && composite_pipeline_ != nullptr &&
+           preview_stamp_pipeline_ != nullptr && composite_pipeline_ != nullptr &&
            stamp_pipeline_ != nullptr;
 }
 
@@ -904,16 +893,22 @@ auto Web::upload_draws() -> b8 {
 
     guiframe(&gui_, screen_, input_events_.span(), &draws_);
     input_events_.clear();
-    if (gui_.document_changed) {
+    if (gui_.recreate_layers) {
         if (!make_layer_texture() || !make_layer_bind_group()) {
             return false;
         }
-        gui_.document_changed = false;
+        gui_.recreate_layers = false;
         gui_.clear_slots.clear();
     }
-    if (gui_.export_requested) {
-        pending_export_ = true;
-        gui_.export_requested = false;
+    for (const GuiAction action : gui_.actions.span()) {
+        switch (action.kind) {
+        case GuiActionKind::kOpenImagePicker:
+            open_image_picker();
+            break;
+        case GuiActionKind::kExportPng:
+            pending_export_ = true;
+            break;
+        }
     }
 
     const Frame uniforms = {
@@ -945,7 +940,7 @@ auto Web::upload_draws() -> b8 {
         layer_rows[index] = {
             .flags = layer_flags_for_gpu(layer),
             .opacity = static_cast<f32>(layer.opacity_u8) / 255.0F,
-            .texture_slot = static_cast<f32>(layer.texture_slot),
+            .layer_slot = static_cast<f32>(layer.layer_slot),
             .kind = static_cast<f32>(static_cast<u8>(layer.kind)),
         };
     }
@@ -959,13 +954,13 @@ auto Web::upload_draws() -> b8 {
     if (!draws_.icons.empty()) {
         queue_.WriteBuffer(icon_buffer_, 0, draws_.icons.data(), draws_.icons.byte_size());
     }
-    if (!draws_.guide_stamps.empty()) {
-        queue_.WriteBuffer(guide_stamp_buffer_, 0, draws_.guide_stamps.data(),
-                           draws_.guide_stamps.byte_size());
+    if (!draws_.preview_stamps.empty()) {
+        queue_.WriteBuffer(preview_stamp_buffer_, 0, draws_.preview_stamps.data(),
+                           draws_.preview_stamps.byte_size());
     }
-    if (!gui_.paint_stamps.empty()) {
-        queue_.WriteBuffer(stamp_buffer_, 0, gui_.paint_stamps.data(),
-                           gui_.paint_stamps.byte_size());
+    if (!gui_.paint_delta.empty()) {
+        queue_.WriteBuffer(stamp_buffer_, 0, gui_.paint_delta.data(),
+                           gui_.paint_delta.byte_size());
     }
     return true;
 }
@@ -991,16 +986,16 @@ void Web::encode_layer_clears(wgpu::CommandEncoder encoder) {
 }
 
 void Web::encode_paint(wgpu::CommandEncoder encoder) {
-    if (gui_.paint_stamps.empty() || stamp_pipeline_ == nullptr || stamp_buffer_ == nullptr) {
+    if (gui_.paint_delta.empty() || stamp_pipeline_ == nullptr || stamp_buffer_ == nullptr) {
         return;
     }
 
     usize first = 0;
-    while (first < gui_.paint_stamps.size()) {
-        const u32 layer = static_cast<u32>(gui_.paint_stamps[first].texture_slot + 0.5F);
+    while (first < gui_.paint_delta.size()) {
+        const u32 layer = static_cast<u32>(gui_.paint_delta[first].layer_slot + 0.5F);
         usize count = 1;
-        while (first + count < gui_.paint_stamps.size() &&
-               static_cast<u32>(gui_.paint_stamps[first + count].texture_slot + 0.5F) == layer) {
+        while (first + count < gui_.paint_delta.size() &&
+               static_cast<u32>(gui_.paint_delta[first + count].layer_slot + 0.5F) == layer) {
             ++count;
         }
         if (layer < layer_slice_views_.size() && layer_slice_views_[layer] != nullptr) {
@@ -1015,7 +1010,7 @@ void Web::encode_paint(wgpu::CommandEncoder encoder) {
             if (pass != nullptr) {
                 pass.SetBindGroup(0, bind_group_);
                 pass.SetPipeline(stamp_pipeline_);
-                pass.SetVertexBuffer(0, stamp_buffer_, 0, gui_.paint_stamps.byte_size());
+                pass.SetVertexBuffer(0, stamp_buffer_, 0, gui_.paint_delta.byte_size());
                 pass.Draw(6, static_cast<u32>(count), 0, static_cast<u32>(first));
                 pass.End();
             }
@@ -1041,8 +1036,8 @@ void Web::encode_gui(wgpu::RenderPassEncoder pass) {
                   sizeof(GlyphDraw));
         draw_rows(pass, icon_pipeline_, icon_buffer_, begin.icon, end.icon - begin.icon,
                   sizeof(IconDraw));
-        draw_rows(pass, guide_stamp_pipeline_, guide_stamp_buffer_, begin.guide_stamp,
-                  end.guide_stamp - begin.guide_stamp, sizeof(PaintStamp));
+        draw_rows(pass, preview_stamp_pipeline_, preview_stamp_buffer_, begin.preview_stamp,
+                  end.preview_stamp - begin.preview_stamp, sizeof(PaintStamp));
     }
 }
 

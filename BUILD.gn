@@ -2,6 +2,10 @@ config("mira_public_config") {
   include_dirs = [ "include" ]
 }
 
+config("mira_cpp_config") {
+  cflags_cc = [ "-std=c++23" ]
+}
+
 draw_wgsl = "src/render/webgpu/shaders/draw.wgsl"
 
 # Keep shaders as WGSL files; GN embeds them as C++ constants for wasm
@@ -20,6 +24,8 @@ action("mira_shader_headers") {
 }
 
 source_set("mira_core") {
+  configs += [ ":mira_cpp_config" ]
+
   sources = [
     "include/mira/base/table.hpp",
     "include/mira/draw/draw.hpp",
@@ -45,6 +51,7 @@ source_set("mira_core") {
 
 executable("mira_tests") {
   testonly = true
+  configs += [ ":mira_cpp_config" ]
 
   sources = [
     "tests/draw_test.cc",
@@ -55,12 +62,16 @@ executable("mira_tests") {
 }
 
 executable("mira_draw_bench") {
+  configs += [ ":mira_cpp_config" ]
+
   sources = [ "bench/draw_bench.cc" ]
 
   deps = [ ":mira_core" ]
 }
 
 executable("mira") {
+  configs += [ ":mira_cpp_config" ]
+
   sources = [
     "include/mira/render/dawn_probe.hpp",
     "src/app/main.cc",
@@ -76,6 +87,8 @@ executable("mira") {
 
 if (is_wasm) {
   executable("mira_web") {
+    configs += [ ":mira_cpp_config" ]
+
     sources = [
       "include/mira/web/web.hpp",
       "$target_gen_dir/draw_shader.hpp",

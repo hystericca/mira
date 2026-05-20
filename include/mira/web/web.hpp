@@ -57,7 +57,7 @@ class Web {
     struct LayerGpu {
         f32 flags = 0.0F;
         f32 opacity = 1.0F;
-        f32 texture_slot = 0.0F;
+        f32 layer_slot = 0.0F;
         f32 kind = 0.0F;
     };
     static_assert(sizeof(LayerGpu) == 16);
@@ -75,7 +75,6 @@ class Web {
 
     void install_input();
     [[nodiscard]] auto mouse_point(const EmscriptenMouseEvent &event) const -> MousePoint;
-    [[nodiscard]] auto menu_action_at(const EmscriptenMouseEvent &event) const -> MenuAction;
     void push_mouse_event(InputKind kind, const EmscriptenMouseEvent &event);
     void push_wheel_event(const EmscriptenWheelEvent &event);
     void push_key_down_event(const EmscriptenKeyboardEvent &event);
@@ -107,7 +106,7 @@ class Web {
     wgpu::Buffer rect_buffer_;
     wgpu::Buffer glyph_buffer_;
     wgpu::Buffer icon_buffer_;
-    wgpu::Buffer guide_stamp_buffer_;
+    wgpu::Buffer preview_stamp_buffer_;
     wgpu::Buffer stamp_buffer_;
     wgpu::Buffer layer_buffer_;
     wgpu::BindGroupLayout bind_group_layout_;
@@ -117,7 +116,7 @@ class Web {
     wgpu::RenderPipeline rect_pipeline_;
     wgpu::RenderPipeline glyph_pipeline_;
     wgpu::RenderPipeline icon_pipeline_;
-    wgpu::RenderPipeline guide_stamp_pipeline_;
+    wgpu::RenderPipeline preview_stamp_pipeline_;
     wgpu::RenderPipeline composite_pipeline_;
     wgpu::RenderPipeline stamp_pipeline_;
     wgpu::Texture layer_texture_;

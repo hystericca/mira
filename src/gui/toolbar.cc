@@ -317,8 +317,8 @@ void drawscatterstroke(DrawList *draws, Rect row, Tone ink) {
     }
 }
 
-void drawtippreview(DrawList *draws, Rect row, u8 tip, u8 size, u8 coverage, Tone ink) {
-    if (coverage != 0) {
+void drawtippreview(DrawList *draws, Rect row, BrushSpec spec) {
+    if (spec.coverage != 0) {
         drawrect(draws,
                  {.x = row.x + 47.0F,
                   .y = row.y + 7.0F,
@@ -327,31 +327,33 @@ void drawtippreview(DrawList *draws, Rect row, u8 tip, u8 size, u8 coverage, Ton
                  Tone::kLight);
     }
 
-    switch (tip) {
+    switch (spec.tip) {
     case 1:
-        drawcleanstroke(draws, row, size, ink, true);
+        drawcleanstroke(draws, row, static_cast<u8>(std::max(0.0F, spec.diameter - 1.0F)),
+                        spec.tone, true);
         break;
     case 2:
-        drawslashstroke(draws, row, true, ink);
+        drawslashstroke(draws, row, true, spec.tone);
         break;
     case 3:
-        drawslashstroke(draws, row, false, ink);
+        drawslashstroke(draws, row, false, spec.tone);
         break;
     case 4:
-        drawcleanstroke(draws, row, 1, ink, true);
+        drawcleanstroke(draws, row, 1, spec.tone, true);
         break;
     case 5:
-        drawcleanstroke(draws, row, 7, ink, true);
+        drawcleanstroke(draws, row, 7, spec.tone, true);
         break;
     case 6:
-        drawrakestroke(draws, row, ink);
+        drawrakestroke(draws, row, spec.tone);
         break;
     case 7:
-        drawscatterstroke(draws, row, ink);
+        drawscatterstroke(draws, row, spec.tone);
         break;
     case 0:
     default:
-        drawcleanstroke(draws, row, size, ink, false);
+        drawcleanstroke(draws, row, static_cast<u8>(std::max(0.0F, spec.diameter - 1.0F)),
+                        spec.tone, false);
         break;
     }
 }
@@ -690,7 +692,10 @@ void toolpopupdraw(const GuiState &state, DrawList *draws) {
         drawstroke(draws, {.x = row.x, .y = row.y, .width = row.width, .height = 1.0F}, Tone::kMid);
         const Tone ink = selected ? Tone::kWhite : Tone::kBlack;
         drawtipstamp(draws, tip.index, row.x + 16.0F, row.y + (row.height * 0.5F), ink, 1.25F);
-        drawtippreview(draws, row, tip.index, state.cursize, state.curcoverage, ink);
+        BrushSpec spec = brushspec(state, kind);
+        spec.tip = tip.index;
+        spec.tone = ink;
+        drawtippreview(draws, row, spec);
     }
 }
 

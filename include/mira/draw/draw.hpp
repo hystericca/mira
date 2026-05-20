@@ -13,7 +13,7 @@ namespace mira {
 constexpr usize kMaxRects = 2048;
 constexpr usize kMaxGlyphs = 2048;
 constexpr usize kMaxIcons = 8192;
-constexpr usize kMaxGuideStamps = 32768;
+constexpr usize kMaxPreviewStamps = 32768;
 constexpr f32 kFontWidth = static_cast<f32>(kFontWidthPixels);
 constexpr f32 kFontHeight = static_cast<f32>(kFontHeightPixels);
 
@@ -120,7 +120,7 @@ struct PaintStamp {
     f32 y = 0.0F;
     f32 diameter = 1.0F;
     f32 tone = 0.0F;
-    f32 texture_slot = 0.0F;
+    f32 layer_slot = 0.0F;
     f32 tip = 0.0F;
     f32 coverage = 0.0F;
     f32 _pad = 0.0F;
@@ -147,14 +147,14 @@ struct DrawPlaneStart {
     usize rect = 0;
     usize glyph = 0;
     usize icon = 0;
-    usize guide_stamp = 0;
+    usize preview_stamp = 0;
 };
 
 struct DrawList {
     Table<RectDraw, kMaxRects> rects;
     Table<GlyphDraw, kMaxGlyphs> glyphs;
     Table<IconDraw, kMaxIcons> icons;
-    Table<PaintStamp, kMaxGuideStamps> guide_stamps;
+    Table<PaintStamp, kMaxPreviewStamps> preview_stamps;
     std::array<DrawPlaneStart, kDrawPlaneCount> planes = {};
     DrawPlane plane = DrawPlane::kBase;
 
@@ -171,7 +171,7 @@ struct DrawView {
     std::span<const RectDraw> rects;
     std::span<const GlyphDraw> glyphs;
     std::span<const IconDraw> icons;
-    std::span<const PaintStamp> guide_stamps;
+    std::span<const PaintStamp> preview_stamps;
 };
 
 [[nodiscard]] Screen screen_for(i32 width, i32 height);
@@ -182,6 +182,6 @@ struct DrawView {
 [[nodiscard]] b8 add_text(DrawList *list, std::string_view text, f32 x, f32 y, Tone tone,
                           f32 scale = 1.0F);
 [[nodiscard]] b8 add_icon(DrawList *list, Icon icon, f32 x, f32 y, Tone tone, f32 scale = 1.0F);
-[[nodiscard]] b8 add_guide_stamp(DrawList *list, PaintStamp stamp);
+[[nodiscard]] b8 add_preview_stamp(DrawList *list, PaintStamp stamp);
 
 } // namespace mira

@@ -16,12 +16,13 @@ constexpr usize kMaxTools = 8;
 constexpr usize kMaxTips = 8;
 constexpr usize kMaxSizes = 8;
 constexpr usize kMaxCoverages = 16;
-constexpr usize kMaxPaintStamps = 32768;
+constexpr usize kMaxPaintDelta = 32768;
 constexpr usize kMaxDraftStamps = 32768;
 constexpr usize kMaxStrokeActions = 1024;
 constexpr usize kMaxHistoryStamps = 32768;
 constexpr usize kMaxInputEvents = 128;
 constexpr usize kMaxHitRecords = 128;
+constexpr usize kMaxGuiActions = 16;
 constexpr usize kLayerNameBytes = 16;
 constexpr usize kToolNameBytes = 8;
 constexpr u8 kNoLayer = 0xFFU;
@@ -47,7 +48,7 @@ struct Layer {
     std::array<char, kLayerNameBytes> name = {};
     u8 flags = kLayerVisible;
     u8 opacity_u8 = 255;
-    u8 texture_slot = 0;
+    u8 layer_slot = 0;
     LayerKind kind = LayerKind::kInk;
 };
 static_assert(sizeof(Layer) == 24);
@@ -171,6 +172,18 @@ enum class ContextKind : u8 {
     kLayer,
 };
 
+enum class GuiActionKind : u8 {
+    kOpenImagePicker,
+    kExportPng,
+};
+
+struct GuiAction {
+    GuiActionKind kind = GuiActionKind::kOpenImagePicker;
+    u8 _pad0 = 0;
+    u16 _pad1 = 0;
+};
+static_assert(sizeof(GuiAction) == 4);
+
 struct HitRecord {
     Rect rect;
     HitKind kind = HitKind::kNone;
@@ -218,47 +231,63 @@ struct GuiLayout {
     Rect dialog_cancel;
 };
 
-struct GuiState {
+struct GuiDocumentState {
     Table<Layer, kMaxLayers> layers;
+    Document document;
+    u32 next_layer_id = 1;
+    u8 curlayer = 0;
+    b8 recreate_layers = false;
+};
+
+struct GuiToolState {
     Table<Tool, kMaxTools> tools;
     Table<Tip, kMaxTips> tips;
     Table<Size, kMaxSizes> sizes;
     Table<Coverage, kMaxCoverages> coverages;
-    Table<PaintStamp, kMaxPaintStamps> paint_stamps;
-    Table<PaintStamp, kMaxDraftStamps> draft_stamps;
-    Table<StrokeAction, kMaxStrokeActions> strokes;
-    Table<PaintStamp, kMaxHistoryStamps> stroke_stamps;
-    Table<u8, kMaxLayers> clear_slots;
-    Table<HitRecord, kMaxHitRecords> hits;
-    Document document;
-    View view;
-    GuiLayout layout;
-    i32 mouse_x = -1;
-    i32 mouse_y = -1;
-    i32 new_width = kDefaultDocumentWidth;
-    i32 new_height = kDefaultDocumentHeight;
-    HitKind hot_kind = HitKind::kNone;
-    u8 hot_index = 0;
-    HitKind active_kind = HitKind::kNone;
-    u8 active_index = 0;
-    u8 curlayer = 0;
     u8 curtool = 0;
     u8 curtip = 3;
     u8 cursize = 3;
     u8 curcoverage = 0;
-    u8 new_field = 0;
-    u8 active_menu = kNoMenu;
-    u8 context_target = kNoLayer;
-    u8 renaming_layer = kNoLayer;
-    i32 context_x = 0;
-    i32 context_y = 0;
-    u32 next_layer_id = 1;
+};
+
+struct GuiHistoryState {
+    Table<StrokeAction, kMaxStrokeActions> strokes;
+    Table<PaintStamp, kMaxHistoryStamps> history_stamps;
     u32 stroke_cursor = 0;
     u32 active_paint_first = 0;
     u32 active_stroke_first = 0;
     u32 active_stroke_count = 0;
     u32 active_stroke_layer = 0;
     Rect active_stroke_rect = {};
+    b8 recording_stroke = false;
+    b8 replay_strokes = false;
+};
+
+struct GuiFrameState {
+    Table<PaintStamp, kMaxPaintDelta> paint_delta;
+    Table<PaintStamp, kMaxDraftStamps> draft_stamps;
+    Table<u8, kMaxLayers> clear_slots;
+    Table<HitRecord, kMaxHitRecords> hits;
+    Table<GuiAction, kMaxGuiActions> actions;
+    GuiLayout layout;
+    i32 mouse_x = -1;
+    i32 mouse_y = -1;
+    HitKind hot_kind = HitKind::kNone;
+    u8 hot_index = 0;
+    HitKind active_kind = HitKind::kNone;
+    u8 active_index = 0;
+};
+
+struct GuiSessionState {
+    View view;
+    i32 new_width = kDefaultDocumentWidth;
+    i32 new_height = kDefaultDocumentHeight;
+    u8 new_field = 0;
+    u8 active_menu = kNoMenu;
+    u8 context_target = kNoLayer;
+    u8 renaming_layer = kNoLayer;
+    i32 context_x = 0;
+    i32 context_y = 0;
     f32 draft_start_x = 0.0F;
     f32 draft_start_y = 0.0F;
     f32 draft_x = 0.0F;
@@ -285,13 +314,16 @@ struct GuiState {
     b8 about_dialog = false;
     b8 new_dialog = false;
     b8 new_replace = false;
-    b8 document_changed = false;
-    b8 export_requested = false;
-    b8 recording_stroke = false;
-    b8 replay_strokes = false;
     b8 draft_active = false;
     ToolKind draft_kind = ToolKind::kPen;
-    u8 draft_texture_slot = 0;
+    u8 draft_layer_slot = 0;
+};
+
+struct GuiState : GuiDocumentState,
+                  GuiToolState,
+                  GuiHistoryState,
+                  GuiFrameState,
+                  GuiSessionState {
 };
 
 [[nodiscard]] std::string_view layername(const Layer &layer);

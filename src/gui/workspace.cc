@@ -55,8 +55,8 @@ void panview(GuiState *state, i32 dx, i32 dy) {
 }
 
 [[nodiscard]] Rect stampviewrect(const GuiState &state, f32 document_x, f32 document_y,
-                                 ToolKind kind) {
-    const f32 diameter = std::max(1.0F, static_cast<f32>(stampsize(state, kind)) + 1.0F);
+                                 BrushSpec spec) {
+    const f32 diameter = std::max(1.0F, spec.diameter);
     const f32 offset = (diameter - 1.0F) * 0.5F;
     return {
         .x = document_to_screen_x(state, document_x - offset),
@@ -66,16 +66,16 @@ void panview(GuiState *state, i32 dx, i32 dy) {
     };
 }
 
-[[nodiscard]] PaintStamp stampfor(const GuiState &state, f32 document_x, f32 document_y,
-                                  ToolKind kind, f32 texture_slot) {
+[[nodiscard]] PaintStamp stampfor(f32 document_x, f32 document_y, BrushSpec spec,
+                                  f32 layer_slot) {
     return {
         .x = document_x,
         .y = document_y,
-        .diameter = static_cast<f32>(stampsize(state, kind)) + 1.0F,
-        .tone = static_cast<f32>(tone_value(painttone(kind))),
-        .texture_slot = texture_slot,
-        .tip = static_cast<f32>(stamptip(state, kind)),
-        .coverage = static_cast<f32>(stampcoverage(state, kind)),
+        .diameter = spec.diameter,
+        .tone = static_cast<f32>(tone_value(spec.tone)),
+        .layer_slot = layer_slot,
+        .tip = static_cast<f32>(spec.tip),
+        .coverage = static_cast<f32>(spec.coverage),
     };
 }
 
@@ -108,8 +108,9 @@ template <typename Emit> [[nodiscard]] b8 emitrect(f32 x0, f32 y0, f32 x1, f32 y
     if (!painttool(kind) || !in_document(*state, document_x, document_y)) {
         return true;
     }
-    return state->draft_stamps.push(stampfor(*state, document_x, document_y, kind,
-                                             static_cast<f32>(state->draft_texture_slot)));
+    return state->draft_stamps.push(
+        stampfor(document_x, document_y, brushspec(*state, kind),
+                 static_cast<f32>(state->draft_layer_slot)));
 }
 
 [[nodiscard]] b8 draftline(GuiState *state, f32 x0, f32 y0, f32 x1, f32 y1, ToolKind kind) {
@@ -154,16 +155,16 @@ template <typename Emit> [[nodiscard]] b8 emitrect(f32 x0, f32 y0, f32 x1, f32 y
 }
 
 void historycancel(GuiState *state, b8 paint_overflow, b8 history_overflow) {
-    state->paint_stamps.truncate(state->active_paint_first);
-    state->stroke_stamps.truncate(state->active_stroke_first);
+    state->paint_delta.truncate(state->active_paint_first);
+    state->history_stamps.truncate(state->active_stroke_first);
     state->active_stroke_count = 0;
     state->active_stroke_rect = {};
     state->recording_stroke = false;
     if (paint_overflow) {
-        state->paint_stamps.overflowed = true;
+        state->paint_delta.overflowed = true;
     }
     if (history_overflow) {
-        state->stroke_stamps.overflowed = true;
+        state->history_stamps.overflowed = true;
     }
 }
 
@@ -171,7 +172,7 @@ void draftclear(GuiState *state) {
     state->draft_stamps.clear();
     state->draft_active = false;
     state->draft_kind = ToolKind::kPen;
-    state->draft_texture_slot = 0;
+    state->draft_layer_slot = 0;
     state->draft_start_x = 0.0F;
     state->draft_start_y = 0.0F;
     state->draft_x = 0.0F;
@@ -189,7 +190,7 @@ void draftfail(GuiState *state) {
 void draftstart(GuiState *state, const Layer &layer, ToolKind kind, f32 x, f32 y) {
     state->draft_active = true;
     state->draft_kind = kind;
-    state->draft_texture_slot = layer.texture_slot;
+    state->draft_layer_slot = layer.layer_slot;
     state->draft_start_x = x;
     state->draft_start_y = y;
     if (!draftbuild(state, x, y)) {
@@ -207,12 +208,12 @@ void draftupdate(GuiState *state, f32 x, f32 y) {
 }
 
 [[nodiscard]] b8 commitstamp(GuiState *state, PaintStamp stamp) {
-    if (state->recording_stroke && state->stroke_stamps.size() >= state->stroke_stamps.capacity()) {
-        state->stroke_stamps.overflowed = true;
+    if (state->recording_stroke && state->history_stamps.size() >= state->history_stamps.capacity()) {
+        state->history_stamps.overflowed = true;
         historycancel(state, false, true);
         return false;
     }
-    if (!state->paint_stamps.push(stamp)) {
+    if (!state->paint_delta.push(stamp)) {
         historycancel(state, true, false);
         return false;
     }
@@ -239,23 +240,26 @@ void drawshapestamps(const GuiState &state, DrawList *draws) {
         return;
     }
     for (const PaintStamp stamp : state.draft_stamps.span()) {
-        (void)add_guide_stamp(draws, stamp);
+        (void)add_preview_stamp(draws, stamp);
     }
 }
 
 b8 mark(GuiState *state, f32 document_x, f32 document_y, ToolKind kind) {
     const Layer *layer = paintlayer(*state);
-    if (!painttool(kind) || layer == nullptr || !in_document(*state, document_x, document_y)) {
+    if (!painttool(kind) || layer == nullptr) {
         return false;
     }
+    if (!in_document(*state, document_x, document_y)) {
+        return true;
+    }
     const PaintStamp stamp =
-        stampfor(*state, document_x, document_y, kind, static_cast<f32>(layer->texture_slot));
-    if (state->recording_stroke && state->stroke_stamps.size() >= state->stroke_stamps.capacity()) {
-        state->stroke_stamps.overflowed = true;
+        stampfor(document_x, document_y, brushspec(*state, kind), static_cast<f32>(layer->layer_slot));
+    if (state->recording_stroke && state->history_stamps.size() >= state->history_stamps.capacity()) {
+        state->history_stamps.overflowed = true;
         historycancel(state, false, true);
         return false;
     }
-    if (!state->paint_stamps.push(stamp)) {
+    if (!state->paint_delta.push(stamp)) {
         historycancel(state, true, false);
         return false;
     }
@@ -286,7 +290,7 @@ b8 markline(GuiState *state, f32 x0, f32 y0, f32 x1, f32 y1, ToolKind kind) {
 
 void historyclear(GuiState *state) {
     state->strokes.clear();
-    state->stroke_stamps.clear();
+    state->history_stamps.clear();
     draftclear(state);
     state->stroke_cursor = 0;
     state->active_paint_first = 0;
@@ -311,11 +315,11 @@ b8 historystart(GuiState *state, const Layer &layer) {
     if (state->stroke_cursor < state->strokes.size()) {
         const usize stamp_size = state->strokes[state->stroke_cursor].first_stamp;
         state->strokes.truncate(state->stroke_cursor);
-        state->stroke_stamps.truncate(stamp_size);
+        state->history_stamps.truncate(stamp_size);
     }
 
-    state->active_paint_first = static_cast<u32>(state->paint_stamps.size());
-    state->active_stroke_first = static_cast<u32>(state->stroke_stamps.size());
+    state->active_paint_first = static_cast<u32>(state->paint_delta.size());
+    state->active_stroke_first = static_cast<u32>(state->history_stamps.size());
     state->active_stroke_count = 0;
     state->active_stroke_layer = layer.id;
     state->active_stroke_rect = {};
@@ -331,7 +335,7 @@ void historymark(GuiState *state, PaintStamp stamp) {
     if (!state->recording_stroke) {
         return;
     }
-    if (!state->stroke_stamps.push(stamp)) {
+    if (!state->history_stamps.push(stamp)) {
         historycancel(state, false, true);
         return;
     }
@@ -389,11 +393,11 @@ void historyreplay(GuiState *state) {
     }
 
     for (const StrokeAction action : state->strokes.span()) {
-        if (action.stamp_count == 0 || action.first_stamp >= state->stroke_stamps.size()) {
+        if (action.stamp_count == 0 || action.first_stamp >= state->history_stamps.size()) {
             continue;
         }
-        const PaintStamp stamp = state->stroke_stamps[action.first_stamp];
-        markclear(state, static_cast<u8>(stamp.texture_slot + 0.5F));
+        const PaintStamp stamp = state->history_stamps[action.first_stamp];
+        markclear(state, static_cast<u8>(stamp.layer_slot + 0.5F));
     }
 
     for (u8 slot = 0; slot < kMaxLayers; ++slot) {
@@ -401,14 +405,14 @@ void historyreplay(GuiState *state) {
             const StrokeAction action = state->strokes[action_index];
             for (u32 stamp_index = 0; stamp_index < action.stamp_count; ++stamp_index) {
                 const usize index = static_cast<usize>(action.first_stamp) + stamp_index;
-                if (index >= state->stroke_stamps.size()) {
+                if (index >= state->history_stamps.size()) {
                     break;
                 }
-                const PaintStamp stamp = state->stroke_stamps[index];
-                if (static_cast<u8>(stamp.texture_slot + 0.5F) != slot) {
+                const PaintStamp stamp = state->history_stamps[index];
+                if (static_cast<u8>(stamp.layer_slot + 0.5F) != slot) {
                     continue;
                 }
-                if (!state->paint_stamps.push(stamp)) {
+                if (!state->paint_delta.push(stamp)) {
                     state->replay_strokes = false;
                     return;
                 }
@@ -559,16 +563,14 @@ void workdraw(const GuiState &state, DrawList *draws) {
         !(state.painting && drafttool(active_tool))) {
         const f32 document_x = screen_to_paint_x(state, state.mouse_x);
         const f32 document_y = screen_to_paint_y(state, state.mouse_y);
-        const Rect preview = stampviewrect(state, document_x, document_y, active_tool);
-        if (paintlayer(state) != nullptr && in_document(state, document_x, document_y) &&
-            containsrect(state.layout.viewport, preview) &&
-            containsrect(state.layout.document, preview)) {
-            if (stampsize(state, active_tool) == 0) {
-                drawstroke(draws, preview, Tone::kBlack);
-            } else {
-                drawicon(draws, tipicon(stamptip(state, active_tool)), preview.x, preview.y,
-                         Tone::kBlack, preview.width / 8.0F);
-            }
+        const BrushSpec spec = brushspec(state, active_tool);
+        const Rect preview = stampviewrect(state, document_x, document_y, spec);
+        const Layer *layer = paintlayer(state);
+        if (layer != nullptr && in_document(state, document_x, document_y) &&
+            !empty(intersectrect(state.layout.viewport, preview)) &&
+            !empty(intersectrect(state.layout.document, preview))) {
+            (void)add_preview_stamp(draws, stampfor(document_x, document_y, spec,
+                                                    static_cast<f32>(layer->layer_slot)));
         }
     }
 

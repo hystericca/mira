@@ -114,7 +114,7 @@ bool layerdel(GuiState *state) {
     if (impl::isbackground(layer)) {
         return false;
     }
-    const u8 slot = layer.texture_slot;
+    const u8 slot = layer.layer_slot;
     impl::historyclear(state);
     if (!state->layers.erase(remove_at)) {
         return false;

@@ -9,12 +9,13 @@ void guiinit(GuiState *state) {
     state->tips.clear();
     state->sizes.clear();
     state->coverages.clear();
-    state->paint_stamps.clear();
+    state->paint_delta.clear();
     state->draft_stamps.clear();
     state->strokes.clear();
-    state->stroke_stamps.clear();
+    state->history_stamps.clear();
     state->clear_slots.clear();
     state->hits.clear();
+    state->actions.clear();
     state->mouse_x = -1;
     state->mouse_y = -1;
     state->new_width = kDefaultDocumentWidth;
@@ -70,13 +71,12 @@ void guiinit(GuiState *state) {
     state->about_dialog = false;
     state->new_dialog = false;
     state->new_replace = false;
-    state->document_changed = false;
-    state->export_requested = false;
+    state->recreate_layers = false;
     state->recording_stroke = false;
     state->replay_strokes = false;
     state->draft_active = false;
     state->draft_kind = ToolKind::kPen;
-    state->draft_texture_slot = 0;
+    state->draft_layer_slot = 0;
 
     for (usize index = 0; index < kToolDefs.size(); ++index) {
         impl::pushtool(state, static_cast<u32>(index + 1U), impl::kToolNames[index],
@@ -115,7 +115,7 @@ void docnew(GuiState *state, i32 width, i32 height) {
     for (u8 slot = 0; slot < kMaxLayers; ++slot) {
         impl::markclear(state, slot);
     }
-    state->document_changed = true;
+    state->recreate_layers = true;
 }
 
 } // namespace mira

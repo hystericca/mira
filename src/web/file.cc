@@ -264,7 +264,7 @@ void Web::export_png() {
         wgpu::TexelCopyTextureInfo source = {};
         source.texture = layer_texture_;
         source.mipLevel = 0;
-        source.origin = {0, 0, static_cast<u32>(layer.texture_slot)};
+        source.origin = {0, 0, static_cast<u32>(layer.layer_slot)};
         source.aspect = wgpu::TextureAspect::All;
 
         wgpu::TexelCopyBufferLayout layout = {};
@@ -341,7 +341,7 @@ void Web::import_image_ready(i32 width, i32 height, const u8 *pixels, usize byte
     if (index == kNoLayer || index >= gui_.layers.size()) {
         return;
     }
-    if (!upload_layer(gui_.layers[index].texture_slot, pixels, byte_count)) {
+    if (!upload_layer(gui_.layers[index].layer_slot, pixels, byte_count)) {
         (void)layerdel(&gui_);
         return;
     }
