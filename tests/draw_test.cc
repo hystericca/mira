@@ -2,6 +2,7 @@
 #include "mira/gui/gui.hpp"
 #include "test_support.hpp"
 
+#include <algorithm>
 #include <array>
 #include <string_view>
 #include <type_traits>
@@ -29,7 +30,9 @@ auto main() -> int {
     static_assert(sizeof(mira::Size) == 4);
     static_assert(sizeof(mira::Coverage) == 4);
     static_assert(sizeof(mira::PaintStamp) == 32);
+    static_assert(sizeof(mira::Brush) == 8);
     static_assert(sizeof(mira::StrokeAction) == 28);
+    static_assert(sizeof(mira::GuiAction) == 4);
     static_assert(sizeof(mira::Document) == 8);
     static_assert(sizeof(mira::View) == 12);
     static_assert(sizeof(mira::InputEvent) == 20);
@@ -519,8 +522,27 @@ auto main() -> int {
     click_export.x = 55;
     click_export.y = 49;
     mira::guievent(&export_gui, {&click_export, 1});
-    MIRA_TEST(export_gui.export_png);
+    MIRA_TEST(export_gui.actions.size() == 1);
+    MIRA_TEST(export_gui.actions[0].kind == mira::GuiActionKind::kExportPng);
     MIRA_TEST(export_gui.active_menu == mira::kNoMenu);
+
+    static mira::GuiState import_gui;
+    mira::guiinit(&import_gui);
+    mira::guilayout(&import_gui, normal);
+    mira::InputEvent open_import_menu = {};
+    open_import_menu.kind = mira::InputKind::kMouseDown;
+    open_import_menu.x = 55;
+    open_import_menu.y = 5;
+    mira::guievent(&import_gui, {&open_import_menu, 1});
+    mira::guilayout(&import_gui, normal);
+    mira::InputEvent click_import = {};
+    click_import.kind = mira::InputKind::kMouseDown;
+    click_import.x = 55;
+    click_import.y = 34;
+    mira::guievent(&import_gui, {&click_import, 1});
+    MIRA_TEST(import_gui.actions.size() == 1);
+    MIRA_TEST(import_gui.actions[0].kind == mira::GuiActionKind::kOpenImagePicker);
+    MIRA_TEST(import_gui.active_menu == mira::kNoMenu);
 
     static mira::GuiState image_gui;
     mira::guiinit(&image_gui);
@@ -628,7 +650,10 @@ auto main() -> int {
     drag_brush_move.y = static_cast<mira::i32>(brush_y_before + 17.0F);
     mira::guievent(&reactive_gui, {&drag_brush_move, 1});
     MIRA_TEST(close(reactive_gui.brush_x, brush_x_before + 24.0F));
-    MIRA_TEST(close(reactive_gui.brush_y, brush_y_before + 12.0F));
+    const mira::f32 expected_brush_y =
+        std::min(brush_y_before + 12.0F,
+                 reactive_gui.layout.window.height - reactive_gui.layout.brush_panel.height);
+    MIRA_TEST(close(reactive_gui.brush_y, expected_brush_y));
     mira::InputEvent drag_brush_up = drag_brush_move;
     drag_brush_up.kind = mira::InputKind::kMouseUp;
     mira::guievent(&reactive_gui, {&drag_brush_up, 1});
@@ -666,7 +691,8 @@ auto main() -> int {
     MIRA_TEST(zoom_tip_hit.kind == mira::HitKind::kToolbar);
     MIRA_TEST(zoom_brush_hit.kind == mira::HitKind::kToolbar);
     const mira::HitRecord viewport_hit =
-        mira::guihit(gui, static_cast<mira::i32>(gui.layout.viewport.x + 24.0F), 40);
+        mira::guihit(gui, static_cast<mira::i32>(gui.layout.viewport.x + 24.0F),
+                     static_cast<mira::i32>(gui.layout.viewport.y + 24.0F));
     MIRA_TEST(viewport_hit.kind == mira::HitKind::kViewport);
     const mira::HitRecord visibility_hit =
         mira::guihit(gui, static_cast<mira::i32>(gui.layout.layerrows.x + 7.0F),
@@ -771,20 +797,11 @@ auto main() -> int {
     cursor_move.y = static_cast<mira::i32>(cursor_gui.layout.viewport.y + (12.0F * 8.0F) + 1.0F);
     static mira::DrawList cursor_list;
     mira::guiframe(&cursor_gui, normal, {&cursor_move, 1}, &cursor_list);
-    const mira::f32 cursor_x = cursor_gui.layout.viewport.x + (10.0F * 8.0F);
-    const mira::f32 cursor_y = cursor_gui.layout.viewport.y + (12.0F * 8.0F);
-    bool cursor_cell_top = false;
-    bool cursor_cell_left = false;
-    for (const mira::RectDraw rect : cursor_list.rects.span()) {
-        cursor_cell_top = cursor_cell_top ||
-                          (close(rect.x0, cursor_x) && close(rect.y0, cursor_y) &&
-                           close(rect.x1, cursor_x + 8.0F) && close(rect.y1, cursor_y + 1.0F));
-        cursor_cell_left = cursor_cell_left ||
-                           (close(rect.x0, cursor_x) && close(rect.y0, cursor_y + 1.0F) &&
-                            close(rect.x1, cursor_x + 1.0F) && close(rect.y1, cursor_y + 7.0F));
-    }
-    MIRA_TEST(cursor_cell_top);
-    MIRA_TEST(cursor_cell_left);
+    MIRA_TEST(cursor_list.preview_stamps.size() == 1);
+    MIRA_TEST(close(cursor_list.preview_stamps[0].x, 10.0F));
+    MIRA_TEST(close(cursor_list.preview_stamps[0].y, 12.0F));
+    MIRA_TEST(close(cursor_list.preview_stamps[0].diameter, 1.0F));
+    MIRA_TEST(close(cursor_list.preview_stamps[0].tip, 0.0F));
 
     mira::InputEvent select_tip = {};
     select_tip.kind = mira::InputKind::kMouseDown;
@@ -863,6 +880,34 @@ auto main() -> int {
     mira::guievent(&outside_gui, {&outside_document_down, 1});
     MIRA_TEST(!outside_gui.painting);
     MIRA_TEST(outside_gui.paint_delta.empty());
+
+    static mira::GuiState edge_stroke_gui;
+    mira::guiinit(&edge_stroke_gui);
+    mira::guilayout(&edge_stroke_gui, normal);
+    edge_stroke_gui.view.x = -8.0F;
+    edge_stroke_gui.view.y = 0.0F;
+    edge_stroke_gui.view.zoom = 1.0F;
+    mira::guilayout(&edge_stroke_gui, normal);
+    mira::InputEvent edge_stroke_down = {};
+    edge_stroke_down.kind = mira::InputKind::kMouseDown;
+    edge_stroke_down.x = static_cast<mira::i32>(edge_stroke_gui.layout.document.x + 2.0F);
+    edge_stroke_down.y = static_cast<mira::i32>(edge_stroke_gui.layout.document.y + 8.0F);
+    mira::InputEvent edge_stroke_move = edge_stroke_down;
+    edge_stroke_move.kind = mira::InputKind::kMouseMove;
+    edge_stroke_move.buttons = 1;
+    edge_stroke_move.x = static_cast<mira::i32>(edge_stroke_gui.layout.document.x - 2.0F);
+    mira::InputEvent edge_stroke_up = edge_stroke_move;
+    edge_stroke_up.kind = mira::InputKind::kMouseUp;
+    const mira::InputEvent edge_stroke_events[] = {edge_stroke_down, edge_stroke_move,
+                                                   edge_stroke_up};
+    mira::guievent(&edge_stroke_gui, edge_stroke_events);
+    MIRA_TEST(!edge_stroke_gui.painting);
+    MIRA_TEST(edge_stroke_gui.strokes.size() == 1);
+    MIRA_TEST(edge_stroke_gui.stroke_cursor == 1);
+    MIRA_TEST(edge_stroke_gui.paint_delta.size() == 3);
+    MIRA_TEST(edge_stroke_gui.history_stamps.size() == 3);
+    MIRA_TEST(close(edge_stroke_gui.paint_delta[0].x, 2.0F));
+    MIRA_TEST(close(edge_stroke_gui.paint_delta[2].x, 0.0F));
 
     gui.view.x = 0.0F;
     gui.view.y = 0.0F;

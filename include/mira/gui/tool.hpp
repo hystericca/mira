@@ -58,14 +58,14 @@ struct ToolDef {
 };
 static_assert(sizeof(ToolDef) == 9);
 
-struct BrushSpec {
+struct Brush {
     f32 diameter = 1.0F;
     Tone tone = Tone::kBlack;
     u8 tip = 0;
     u8 coverage = 0;
-    u16 _pad = 0;
+    u8 _pad = 0;
 };
-static_assert(sizeof(BrushSpec) == 8);
+static_assert(sizeof(Brush) == 8);
 
 inline constexpr std::array<ToolDef, 7> kToolDefs = {{
     {.kind = ToolKind::kPen,

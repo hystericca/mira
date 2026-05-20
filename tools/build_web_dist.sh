@@ -28,6 +28,26 @@ for file in "${asset_files[@]}"; do
 	cp "$web_root/$file" "$dist_root/$file"
 done
 
+{
+	source_hash="$(
+		cd "$repo_root"
+		{
+			git ls-files
+			if [[ -f DAWN_REVISION ]]; then
+				printf 'DAWN_REVISION\n'
+			fi
+		} |
+			grep -v '^web-dist/' |
+			sort -u |
+			xargs shasum -a 256 |
+			shasum -a 256 |
+			awk '{print $1}'
+	)"
+	printf 'mira_source_hash=%s\n' "$source_hash"
+	printf 'dawn_commit=%s\n' "$(git -C "$DAWN_ROOT" rev-parse HEAD)"
+	printf 'mode=release\n'
+} > "$dist_root/build.txt"
+
 find "$dist_root" -maxdepth 1 -type f -print0 |
 	xargs -0 stat -f "%N %z bytes" |
 	sort

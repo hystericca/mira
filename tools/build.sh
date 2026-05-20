@@ -9,7 +9,7 @@ MIRA_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "$MIRA_ROOT"
 
-"$MIRA_ROOT/tools/gn_gen.sh" "$OUT_DIR" "$MODE"
+"$MIRA_ROOT/tools/gn_gen.sh" "$OUT_DIR" "$MODE" web
 
 ant exec tsgo --noEmit -p "$MIRA_ROOT/tsconfig.json"
 

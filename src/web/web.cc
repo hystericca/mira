@@ -959,8 +959,7 @@ auto Web::upload_draws() -> b8 {
                            draws_.preview_stamps.byte_size());
     }
     if (!gui_.paint_delta.empty()) {
-        queue_.WriteBuffer(stamp_buffer_, 0, gui_.paint_delta.data(),
-                           gui_.paint_delta.byte_size());
+        queue_.WriteBuffer(stamp_buffer_, 0, gui_.paint_delta.data(), gui_.paint_delta.byte_size());
     }
     return true;
 }

@@ -20,13 +20,13 @@ check:
 
 web:
 	@ant exec tsgo --noEmit -p tsconfig.json
-	@./tools/gn_gen.sh "$(OUT_DIR)" debug
+	@./tools/gn_gen.sh "$(OUT_DIR)" debug web
 	@$(AUTONINJA) -C "$(OUT_DIR)" "wasm/mira_web.html"
 	@MIRA_WEB_ROOT="$(WEB_ROOT)" ant tools/serve.ts
 
 release:
 	@ant exec tsgo --noEmit -p tsconfig.json
-	@./tools/gn_gen.sh "$(RELEASE_OUT_DIR)" release
+	@./tools/gn_gen.sh "$(RELEASE_OUT_DIR)" release web
 	@$(AUTONINJA) -C "$(RELEASE_OUT_DIR)" mira:all
 	@$(AUTONINJA) -C "$(RELEASE_OUT_DIR)" "wasm/mira_web.html"
 	@"$(RELEASE_OUT_DIR)/mira_tests"

@@ -7,6 +7,7 @@ its Domains tab, tracks deployments, and can auto-deploy from GitHub.
 Mira's browser build is generated locally by Dawn under `out/mira-release/wasm`.
 The generated web assets are copied into `web-dist/` and committed so Dokploy
 does not need to build Dawn on the 1 GB VPS.
+`web-dist/build.txt` records the source hash and Dawn commit used.
 
 ## Update Web Assets
 

@@ -231,7 +231,7 @@ struct GuiLayout {
     Rect dialog_cancel;
 };
 
-struct GuiDocumentState {
+struct DocumentState {
     Table<Layer, kMaxLayers> layers;
     Document document;
     u32 next_layer_id = 1;
@@ -239,7 +239,7 @@ struct GuiDocumentState {
     b8 recreate_layers = false;
 };
 
-struct GuiToolState {
+struct ToolState {
     Table<Tool, kMaxTools> tools;
     Table<Tip, kMaxTips> tips;
     Table<Size, kMaxSizes> sizes;
@@ -250,7 +250,7 @@ struct GuiToolState {
     u8 curcoverage = 0;
 };
 
-struct GuiHistoryState {
+struct HistoryState {
     Table<StrokeAction, kMaxStrokeActions> strokes;
     Table<PaintStamp, kMaxHistoryStamps> history_stamps;
     u32 stroke_cursor = 0;
@@ -263,7 +263,7 @@ struct GuiHistoryState {
     b8 replay_strokes = false;
 };
 
-struct GuiFrameState {
+struct FrameState {
     Table<PaintStamp, kMaxPaintDelta> paint_delta;
     Table<PaintStamp, kMaxDraftStamps> draft_stamps;
     Table<u8, kMaxLayers> clear_slots;
@@ -278,7 +278,7 @@ struct GuiFrameState {
     u8 active_index = 0;
 };
 
-struct GuiSessionState {
+struct SessionState {
     View view;
     i32 new_width = kDefaultDocumentWidth;
     i32 new_height = kDefaultDocumentHeight;
@@ -319,11 +319,11 @@ struct GuiSessionState {
     u8 draft_layer_slot = 0;
 };
 
-struct GuiState : GuiDocumentState,
-                  GuiToolState,
-                  GuiHistoryState,
-                  GuiFrameState,
-                  GuiSessionState {
+struct GuiState : DocumentState,
+                  ToolState,
+                  HistoryState,
+                  FrameState,
+                  SessionState {
 };
 
 [[nodiscard]] std::string_view layername(const Layer &layer);

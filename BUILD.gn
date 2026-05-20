@@ -140,3 +140,9 @@ group("gn_root") {
     ":web",
   ]
 }
+
+group("gn_root_native") {
+  testonly = true
+
+  deps = [ ":all" ]
+}

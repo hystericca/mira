@@ -317,7 +317,7 @@ void drawscatterstroke(DrawList *draws, Rect row, Tone ink) {
     }
 }
 
-void drawtippreview(DrawList *draws, Rect row, BrushSpec spec) {
+void drawtippreview(DrawList *draws, Rect row, Brush spec) {
     if (spec.coverage != 0) {
         drawrect(draws,
                  {.x = row.x + 47.0F,
@@ -692,7 +692,7 @@ void toolpopupdraw(const GuiState &state, DrawList *draws) {
         drawstroke(draws, {.x = row.x, .y = row.y, .width = row.width, .height = 1.0F}, Tone::kMid);
         const Tone ink = selected ? Tone::kWhite : Tone::kBlack;
         drawtipstamp(draws, tip.index, row.x + 16.0F, row.y + (row.height * 0.5F), ink, 1.25F);
-        BrushSpec spec = brushspec(state, kind);
+        Brush spec = brushfor(state, kind);
         spec.tip = tip.index;
         spec.tone = ink;
         drawtippreview(draws, row, spec);

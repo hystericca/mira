@@ -6,6 +6,14 @@ DAWN_ROOT="${DAWN_ROOT:-$HOME/Developer/dawn}"
 DEPOT_TOOLS="${DEPOT_TOOLS:-$HOME/Developer/depot_tools}"
 OUT_DIR="${1:-$DAWN_ROOT/out/mira-debug}"
 MODE="${2:-debug}"
+SCOPE="${3:-native}"
+MIRA_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [[ "$SCOPE" == "web" ]]; then
+  ROOT_TARGET="//mira:gn_root"
+else
+  ROOT_TARGET="//mira:gn_root_native"
+fi
 
 if [[ ! -x "$DEPOT_TOOLS/gn" ]]; then
   echo "missing gn at $DEPOT_TOOLS/gn" >&2
@@ -17,18 +25,19 @@ if [[ ! -d "$DAWN_ROOT/.git" ]]; then
   exit 1
 fi
 
-if [[ ! -x "$DAWN_ROOT/third_party/emsdk/upstream/emscripten/em++" ]]; then
-  echo "missing Emscripten in Dawn checkout; run gclient sync in $DAWN_ROOT" >&2
-  exit 1
+if [[ "$SCOPE" == "web" ]]; then
+  if [[ ! -x "$DAWN_ROOT/third_party/emsdk/upstream/emscripten/em++" ]]; then
+    echo "missing Emscripten in Dawn checkout; run gclient sync in $DAWN_ROOT" >&2
+    exit 1
+  fi
+
+  if [[ ! -f "$DAWN_ROOT/third_party/emdawnwebgpu/pkg/webgpu/src/library_webgpu.js" ||
+        ! -f "$DAWN_ROOT/third_party/emdawnwebgpu/pkg/webgpu/src/webgpu.cpp" ]]; then
+    echo "missing emdawnwebgpu sources in Dawn checkout; run gclient sync in $DAWN_ROOT" >&2
+    exit 1
+  fi
 fi
 
-if [[ ! -f "$DAWN_ROOT/third_party/emdawnwebgpu/pkg/webgpu/src/library_webgpu.js" ||
-      ! -f "$DAWN_ROOT/third_party/emdawnwebgpu/pkg/webgpu/src/webgpu.cpp" ]]; then
-  echo "missing emdawnwebgpu sources in Dawn checkout; run gclient sync in $DAWN_ROOT" >&2
-  exit 1
-fi
-
-MIRA_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [[ -L "$DAWN_ROOT/mira" || ! -e "$DAWN_ROOT/mira" ]]; then
   rm -f "$DAWN_ROOT/mira"
 else
@@ -36,6 +45,14 @@ else
   exit 1
 fi
 ln -s "$MIRA_ROOT" "$DAWN_ROOT/mira"
+
+if [[ -f "$MIRA_ROOT/DAWN_REVISION" ]]; then
+  expected="$(tr -d '[:space:]' < "$MIRA_ROOT/DAWN_REVISION")"
+  current="$(git -C "$DAWN_ROOT" rev-parse HEAD)"
+  if [[ -n "$expected" && "$current" != "$expected" ]]; then
+    echo "warning: Dawn HEAD is $current, expected $expected" >&2
+  fi
+fi
 
 EXCLUDE="$DAWN_ROOT/.git/info/exclude"
 if ! grep -qxF "/mira" "$EXCLUDE"; then
@@ -52,7 +69,7 @@ fi
 
 PATH="$DEPOT_TOOLS:$DAWN_ROOT/buildtools/mac:$PATH" "$DEPOT_TOOLS/gn" gen "$OUT_DIR" \
   --root="$DAWN_ROOT" \
-  --root-target=//mira:gn_root \
+  --root-target="$ROOT_TARGET" \
   --add-export-compile-commands=//mira/* \
   --args="
 is_debug = $IS_DEBUG

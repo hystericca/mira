@@ -453,7 +453,7 @@ inline void layernametext(DrawList *draws, const Layer &layer, f32 x, f32 y, Ton
     return state.curcoverage;
 }
 
-[[nodiscard]] inline auto brushspec(const GuiState &state, ToolKind kind) -> BrushSpec {
+[[nodiscard]] inline auto brushfor(const GuiState &state, ToolKind kind) -> Brush {
     return {
         .diameter = static_cast<f32>(stampsize(state, kind)) + 1.0F,
         .tone = painttone(kind),
