@@ -114,8 +114,8 @@ constexpr std::array<SourceGlyph, kFontCount> kSourceGlyphs = {{
     return out;
 }
 
-[[nodiscard]] constexpr auto makefont() -> GpuFont {
-    GpuFont result = {};
+[[nodiscard]] constexpr auto makefont() -> Font {
+    Font result = {};
     result.metrics = {kFontFirst, kFontCount, kFontWidthPixels, kFontHeightPixels};
     for (u32 glyph = 0; glyph < kFontCount; ++glyph) {
         result.glyphs[glyph].metrics = {kFontWidthPixels, kFontHeightPixels, kFontAscentPixels, 0U};
@@ -126,11 +126,11 @@ constexpr std::array<SourceGlyph, kFontCount> kSourceGlyphs = {{
     return result;
 }
 
-constexpr GpuFont kFont = makefont();
+constexpr Font kFont = makefont();
 
 } // namespace
 
-const GpuFont &font() { return kFont; }
+const Font &font() { return kFont; }
 
 u32 fontrow(u32 code, u32 row) {
     if (code < kFontFirst || code >= kFontFirst + kFontCount || row >= kFontHeightPixels) {

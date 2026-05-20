@@ -18,7 +18,7 @@ constexpr usize kMaxSizes = 8;
 constexpr usize kMaxCoverages = 16;
 constexpr usize kMaxPaintDelta = 32768;
 constexpr usize kMaxDraftStamps = 32768;
-constexpr usize kMaxStrokeActions = 1024;
+constexpr usize kMaxStrokes = 1024;
 constexpr usize kMaxHistoryStamps = 32768;
 constexpr usize kMaxInputEvents = 128;
 constexpr usize kMaxHitRecords = 128;
@@ -83,13 +83,13 @@ struct Coverage {
 };
 static_assert(sizeof(Coverage) == 4);
 
-struct StrokeAction {
+struct Stroke {
     u32 layer_id = 0;
     u32 first_stamp = 0;
     u32 stamp_count = 0;
     Rect affected = {};
 };
-static_assert(sizeof(StrokeAction) == 28);
+static_assert(sizeof(Stroke) == 28);
 
 enum class InputKind : u8 {
     kMouseMove,
@@ -251,7 +251,7 @@ struct ToolState {
 };
 
 struct HistoryState {
-    Table<StrokeAction, kMaxStrokeActions> strokes;
+    Table<Stroke, kMaxStrokes> strokes;
     Table<PaintStamp, kMaxHistoryStamps> history_stamps;
     u32 stroke_cursor = 0;
     u32 active_paint_first = 0;

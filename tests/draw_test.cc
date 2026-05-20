@@ -21,8 +21,8 @@ auto main() -> int {
     static_assert(sizeof(mira::RectDraw) == 32);
     static_assert(sizeof(mira::GlyphDraw) == 32);
     static_assert(sizeof(mira::IconDraw) == 32);
-    static_assert(sizeof(mira::GpuFontGlyph) == 80);
-    static_assert(sizeof(mira::GpuFont) == 7616);
+    static_assert(sizeof(mira::FontGlyph) == 80);
+    static_assert(sizeof(mira::Font) == 7616);
     static_assert(sizeof(mira::ToolDef) == 9);
     static_assert(sizeof(mira::Layer) == 24);
     static_assert(sizeof(mira::Tool) == 16);
@@ -31,7 +31,7 @@ auto main() -> int {
     static_assert(sizeof(mira::Coverage) == 4);
     static_assert(sizeof(mira::PaintStamp) == 32);
     static_assert(sizeof(mira::Brush) == 8);
-    static_assert(sizeof(mira::StrokeAction) == 28);
+    static_assert(sizeof(mira::Stroke) == 28);
     static_assert(sizeof(mira::GuiAction) == 4);
     static_assert(sizeof(mira::Document) == 8);
     static_assert(sizeof(mira::View) == 12);
@@ -1016,7 +1016,7 @@ auto main() -> int {
     overflow_action_gui.view.x = 0.0F;
     overflow_action_gui.view.y = 0.0F;
     mira::guilayout(&overflow_action_gui, normal);
-    mira::StrokeAction dummy_action = {};
+    mira::Stroke dummy_action = {};
     for (mira::usize index = 0; index < overflow_action_gui.strokes.capacity(); ++index) {
         MIRA_TEST(overflow_action_gui.strokes.push(dummy_action));
     }

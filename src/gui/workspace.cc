@@ -355,7 +355,7 @@ void historyfinish(GuiState *state) {
         state->recording_stroke = false;
         return;
     }
-    const StrokeAction action = {
+    const Stroke action = {
         .layer_id = state->active_stroke_layer,
         .first_stamp = state->active_stroke_first,
         .stamp_count = state->active_stroke_count,
@@ -392,7 +392,7 @@ void historyreplay(GuiState *state) {
         return;
     }
 
-    for (const StrokeAction action : state->strokes.span()) {
+    for (const Stroke action : state->strokes.span()) {
         if (action.stamp_count == 0 || action.first_stamp >= state->history_stamps.size()) {
             continue;
         }
@@ -402,7 +402,7 @@ void historyreplay(GuiState *state) {
 
     for (u8 slot = 0; slot < kMaxLayers; ++slot) {
         for (usize action_index = 0; action_index < state->stroke_cursor; ++action_index) {
-            const StrokeAction action = state->strokes[action_index];
+            const Stroke action = state->strokes[action_index];
             for (u32 stamp_index = 0; stamp_index < action.stamp_count; ++stamp_index) {
                 const usize index = static_cast<usize>(action.first_stamp) + stamp_index;
                 if (index >= state->history_stamps.size()) {

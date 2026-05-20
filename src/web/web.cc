@@ -578,14 +578,14 @@ auto Web::make_pipeline() -> b8 {
         return false;
     }
     wgpu::BufferDescriptor font_buffer_descriptor = {};
-    font_buffer_descriptor.size = sizeof(GpuFont);
+    font_buffer_descriptor.size = sizeof(Font);
     font_buffer_descriptor.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
     font_buffer_ = device_.CreateBuffer(&font_buffer_descriptor);
     if (font_buffer_ == nullptr) {
         return false;
     }
-    const GpuFont &text_font = font();
-    queue_.WriteBuffer(font_buffer_, 0, &text_font, sizeof(GpuFont));
+    const Font &text_font = font();
+    queue_.WriteBuffer(font_buffer_, 0, &text_font, sizeof(Font));
 
     rect_buffer_ = make_vertex_buffer(device_, kRectBufferBytes);
     glyph_buffer_ = make_vertex_buffer(device_, kGlyphBufferBytes);
@@ -614,7 +614,7 @@ auto Web::make_pipeline() -> b8 {
     bind_group_layout_entries[1].visibility =
         wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
     bind_group_layout_entries[1].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
-    bind_group_layout_entries[1].buffer.minBindingSize = sizeof(GpuFont);
+    bind_group_layout_entries[1].buffer.minBindingSize = sizeof(Font);
 
     wgpu::BindGroupLayoutDescriptor bind_group_layout_descriptor = {};
     bind_group_layout_descriptor.entryCount = bind_group_layout_entries.size();
@@ -674,7 +674,7 @@ auto Web::make_pipeline() -> b8 {
     bind_group_entries[1].binding = 1;
     bind_group_entries[1].buffer = font_buffer_;
     bind_group_entries[1].offset = 0;
-    bind_group_entries[1].size = sizeof(GpuFont);
+    bind_group_entries[1].size = sizeof(Font);
 
     wgpu::BindGroupDescriptor bind_group_descriptor = {};
     bind_group_descriptor.layout = bind_group_layout_;
