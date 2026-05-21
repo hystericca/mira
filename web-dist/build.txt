@@ -1,0 +1,3 @@
+mira_source_hash=88282e9504ea7e0b1b1130ca2db21567b04ea4b0097d936d0bd45d8559a5f0f3
+dawn_commit=1075055a6d1a9d39af36569ff13006a61cd0ffa4
+mode=release
