@@ -36,7 +36,7 @@ auto main() -> int {
     static_assert(sizeof(mira::Document) == 8);
     static_assert(sizeof(mira::View) == 12);
     static_assert(sizeof(mira::InputEvent) == 20);
-    static_assert(sizeof(mira::HitRecord) == 24);
+    static_assert(sizeof(mira::Hit) == 24);
     static_assert(!std::is_copy_constructible_v<mira::DrawList>);
     static_assert(!std::is_copy_constructible_v<mira::GuiState>);
 
@@ -273,7 +273,7 @@ auto main() -> int {
     MIRA_TEST(close(nav_gui.view.y, pan_y_before + (9.0F / nav_gui.view.zoom)));
     MIRA_TEST(!nav_gui.panning);
 
-    const mira::HitRecord menu_hit = mira::guihit(gui, 8, 5);
+    const mira::Hit menu_hit = mira::guihit(gui, 8, 5);
     MIRA_TEST(menu_hit.kind == mira::HitKind::kMenu);
     MIRA_TEST(menu_hit.index == 0);
     static mira::GuiState about_gui;
@@ -286,7 +286,7 @@ auto main() -> int {
     mira::guievent(&about_gui, {&open_mira_menu, 1});
     MIRA_TEST(about_gui.active_menu == 0);
     mira::guilayout(&about_gui, normal);
-    const mira::HitRecord about_hit = mira::guihit(about_gui, 8, 20);
+    const mira::Hit about_hit = mira::guihit(about_gui, 8, 20);
     MIRA_TEST(about_hit.kind == mira::HitKind::kMenuAction);
     MIRA_TEST(mira::menuaction(about_gui, about_hit) == mira::MenuAction::kMiraAbout);
     mira::InputEvent click_about = {};
@@ -299,7 +299,7 @@ auto main() -> int {
     mira::guilayout(&about_gui, normal);
     MIRA_TEST(about_gui.layout.dialog.width == 248.0F);
     MIRA_TEST(about_gui.layout.dialog_logo.width == 42.0F);
-    const mira::HitRecord about_ok =
+    const mira::Hit about_ok =
         mira::guihit(about_gui, static_cast<mira::i32>(about_gui.layout.dialog_ok.x + 1.0F),
                      static_cast<mira::i32>(about_gui.layout.dialog_ok.y + 1.0F));
     MIRA_TEST(about_ok.kind == mira::HitKind::kDialogButton);
@@ -342,7 +342,7 @@ auto main() -> int {
     MIRA_TEST(canvas_context_gui.layout.context.x == static_cast<mira::f32>(canvas_context.x));
     MIRA_TEST(canvas_context_draws.plane_count() >=
               static_cast<mira::usize>(mira::DrawPlane::kMenu) + 1U);
-    const mira::HitRecord undo_context =
+    const mira::Hit undo_context =
         mira::guihit(canvas_context_gui,
                      static_cast<mira::i32>(canvas_context_gui.layout.context.x + 2.0F),
                      static_cast<mira::i32>(canvas_context_gui.layout.context.y + 2.0F));
@@ -371,7 +371,7 @@ auto main() -> int {
     MIRA_TEST(mira::contextkind(sidebar_context_gui) == mira::ContextKind::kLayer);
     MIRA_TEST(sidebar_context_gui.context_target == mira::kNoLayer);
     mira::guilayout(&sidebar_context_gui, normal);
-    const mira::HitRecord sidebar_new_context =
+    const mira::Hit sidebar_new_context =
         mira::guihit(sidebar_context_gui,
                      static_cast<mira::i32>(sidebar_context_gui.layout.context.x + 2.0F),
                      static_cast<mira::i32>(sidebar_context_gui.layout.context.y + 2.0F));
@@ -393,7 +393,7 @@ auto main() -> int {
     MIRA_TEST(layer_context_gui.context_target == 0);
     MIRA_TEST(layer_context_gui.curlayer == 0);
     mira::guilayout(&layer_context_gui, normal);
-    const mira::HitRecord rename_context =
+    const mira::Hit rename_context =
         mira::guihit(layer_context_gui,
                      static_cast<mira::i32>(layer_context_gui.layout.context.x + 2.0F),
                      static_cast<mira::i32>(layer_context_gui.layout.context.y + 32.0F));
@@ -418,7 +418,7 @@ auto main() -> int {
     mira::guievent(&menu_gui, {&open_layer_menu, 1});
     MIRA_TEST(menu_gui.active_menu == 3);
     mira::guilayout(&menu_gui, normal);
-    const mira::HitRecord new_layer_hit = mira::guihit(menu_gui, 145, 20);
+    const mira::Hit new_layer_hit = mira::guihit(menu_gui, 145, 20);
     MIRA_TEST(new_layer_hit.kind == mira::HitKind::kMenuAction);
     mira::InputEvent click_new_layer = {};
     click_new_layer.kind = mira::InputKind::kMouseDown;
@@ -440,8 +440,8 @@ auto main() -> int {
     mira::guievent(&edit_gui, {&open_edit_menu, 1});
     MIRA_TEST(edit_gui.active_menu == 2);
     mira::guilayout(&edit_gui, normal);
-    const mira::HitRecord undo_hit = mira::guihit(edit_gui, 105, 20);
-    const mira::HitRecord redo_hit = mira::guihit(edit_gui, 105, 35);
+    const mira::Hit undo_hit = mira::guihit(edit_gui, 105, 20);
+    const mira::Hit redo_hit = mira::guihit(edit_gui, 105, 35);
     MIRA_TEST(undo_hit.kind == mira::HitKind::kMenuAction);
     MIRA_TEST(redo_hit.kind == mira::HitKind::kMenuAction);
     MIRA_TEST(mira::menuaction(edit_gui, undo_hit) == mira::MenuAction::kUndo);
@@ -458,13 +458,13 @@ auto main() -> int {
     mira::guievent(&file_gui, {&open_file_menu, 1});
     MIRA_TEST(file_gui.active_menu == 1);
     mira::guilayout(&file_gui, normal);
-    const mira::HitRecord import_hit = mira::guihit(file_gui, 55, 34);
+    const mira::Hit import_hit = mira::guihit(file_gui, 55, 34);
     MIRA_TEST(import_hit.kind == mira::HitKind::kMenuAction);
     MIRA_TEST(mira::menuaction(file_gui, import_hit) == mira::MenuAction::kFileImport);
-    const mira::HitRecord export_hit = mira::guihit(file_gui, 55, 49);
+    const mira::Hit export_hit = mira::guihit(file_gui, 55, 49);
     MIRA_TEST(export_hit.kind == mira::HitKind::kMenuAction);
     MIRA_TEST(mira::menuaction(file_gui, export_hit) == mira::MenuAction::kFileExport);
-    const mira::HitRecord new_file_hit = mira::guihit(file_gui, 55, 20);
+    const mira::Hit new_file_hit = mira::guihit(file_gui, 55, 20);
     MIRA_TEST(mira::menuaction(file_gui, new_file_hit) == mira::MenuAction::kFileNew);
     mira::InputEvent click_file_new = {};
     click_file_new.kind = mira::InputKind::kMouseDown;
@@ -476,7 +476,7 @@ auto main() -> int {
     MIRA_TEST(file_gui.new_width == mira::kDefaultDocumentWidth);
     MIRA_TEST(file_gui.new_height == mira::kDefaultDocumentHeight);
     mira::guilayout(&file_gui, normal);
-    const mira::HitRecord dialog_hit =
+    const mira::Hit dialog_hit =
         mira::guihit(file_gui, static_cast<mira::i32>(file_gui.layout.dialog_width.x + 2.0F),
                      static_cast<mira::i32>(file_gui.layout.dialog_width.y + 2.0F));
     MIRA_TEST(dialog_hit.kind == mira::HitKind::kDialogField);
@@ -561,16 +561,16 @@ auto main() -> int {
     MIRA_TEST(default_image_index == 1);
     MIRA_TEST(default_image_gui.layers[1].opacity_u8 == 255);
 
-    const mira::HitRecord tool_hit =
+    const mira::Hit tool_hit =
         mira::guihit(gui, static_cast<mira::i32>(gui.layout.tools.x + 1.0F),
                      static_cast<mira::i32>(gui.layout.tools.y + 1.0F));
     MIRA_TEST(tool_hit.kind == mira::HitKind::kTool);
     MIRA_TEST(tool_hit.index == 0);
-    const mira::HitRecord brush_hit =
+    const mira::Hit brush_hit =
         mira::guihit(gui, static_cast<mira::i32>(gui.layout.tips.x + 1.0F),
                      static_cast<mira::i32>(gui.layout.tips.y + 1.0F));
     MIRA_TEST(brush_hit.kind == mira::HitKind::kToolbar);
-    const mira::HitRecord empty_tool_hit =
+    const mira::Hit empty_tool_hit =
         mira::guihit(gui, static_cast<mira::i32>(gui.layout.tips.x + 29.0F),
                      static_cast<mira::i32>(gui.layout.tips.y + 1.0F));
     MIRA_TEST(empty_tool_hit.kind == mira::HitKind::kToolbar);
@@ -597,10 +597,10 @@ auto main() -> int {
     reactive_brush.y = static_cast<mira::i32>(reactive_gui.layout.tools.y + 28.0F);
     mira::guievent(&reactive_gui, {&reactive_brush, 1});
     mira::guilayout(&reactive_gui, normal);
-    const mira::HitRecord brush_tip_hit =
+    const mira::Hit brush_tip_hit =
         mira::guihit(reactive_gui, static_cast<mira::i32>(reactive_gui.layout.tips.x + 1.0F),
                      static_cast<mira::i32>(reactive_gui.layout.tips.y + 1.0F));
-    const mira::HitRecord brush_button_hit =
+    const mira::Hit brush_button_hit =
         mira::guihit(reactive_gui,
                      static_cast<mira::i32>(reactive_gui.layout.brush_button.x + 1.0F),
                      static_cast<mira::i32>(reactive_gui.layout.brush_button.y + 1.0F));
@@ -613,23 +613,23 @@ auto main() -> int {
     mira::guievent(&reactive_gui, {&open_brush, 1});
     MIRA_TEST(reactive_gui.brush_open);
     mira::guilayout(&reactive_gui, normal);
-    const mira::HitRecord tip_row_hit =
+    const mira::Hit tip_row_hit =
         mira::guihit(reactive_gui,
                      static_cast<mira::i32>(reactive_gui.layout.brush_panel.x + 14.0F),
                      static_cast<mira::i32>(reactive_gui.layout.brush_panel.y + 166.0F));
     MIRA_TEST(tip_row_hit.kind == mira::HitKind::kTip);
     MIRA_TEST(tip_row_hit.index == 2);
-    const mira::HitRecord coverage_hit =
+    const mira::Hit coverage_hit =
         mira::guihit(reactive_gui,
                      static_cast<mira::i32>(reactive_gui.layout.brush_panel.x + 50.0F),
                      static_cast<mira::i32>(reactive_gui.layout.brush_panel.y + 70.0F));
     MIRA_TEST(coverage_hit.kind == mira::HitKind::kCoverage);
-    const mira::HitRecord brush_title_hit =
+    const mira::Hit brush_title_hit =
         mira::guihit(reactive_gui,
                      static_cast<mira::i32>(reactive_gui.layout.brush_panel.x + 8.0F),
                      static_cast<mira::i32>(reactive_gui.layout.brush_panel.y + 5.0F));
     MIRA_TEST(brush_title_hit.kind == mira::HitKind::kBrushTitle);
-    const mira::HitRecord brush_close_hit =
+    const mira::Hit brush_close_hit =
         mira::guihit(reactive_gui,
                      static_cast<mira::i32>(reactive_gui.layout.brush_panel.x +
                                             reactive_gui.layout.brush_panel.width - 10.0F),
@@ -669,10 +669,10 @@ auto main() -> int {
     reactive_magic.y = static_cast<mira::i32>(reactive_gui.layout.tools.y + 76.0F);
     mira::guievent(&reactive_gui, {&reactive_magic, 1});
     mira::guilayout(&reactive_gui, normal);
-    const mira::HitRecord magic_tip_hit =
+    const mira::Hit magic_tip_hit =
         mira::guihit(reactive_gui, static_cast<mira::i32>(reactive_gui.layout.tips.x + 1.0F),
                      static_cast<mira::i32>(reactive_gui.layout.tips.y + 1.0F));
-    const mira::HitRecord magic_brush_hit =
+    const mira::Hit magic_brush_hit =
         mira::guihit(reactive_gui, static_cast<mira::i32>(reactive_gui.layout.tips.x + 29.0F),
                      static_cast<mira::i32>(reactive_gui.layout.tips.y + 1.0F));
     MIRA_TEST(magic_tip_hit.kind == mira::HitKind::kToolbar);
@@ -682,19 +682,19 @@ auto main() -> int {
     reactive_zoom.y = static_cast<mira::i32>(reactive_gui.layout.tools.y + 124.0F);
     mira::guievent(&reactive_gui, {&reactive_zoom, 1});
     mira::guilayout(&reactive_gui, normal);
-    const mira::HitRecord zoom_tip_hit =
+    const mira::Hit zoom_tip_hit =
         mira::guihit(reactive_gui, static_cast<mira::i32>(reactive_gui.layout.tips.x + 1.0F),
                      static_cast<mira::i32>(reactive_gui.layout.tips.y + 1.0F));
-    const mira::HitRecord zoom_brush_hit =
+    const mira::Hit zoom_brush_hit =
         mira::guihit(reactive_gui, static_cast<mira::i32>(reactive_gui.layout.tips.x + 29.0F),
                      static_cast<mira::i32>(reactive_gui.layout.tips.y + 1.0F));
     MIRA_TEST(zoom_tip_hit.kind == mira::HitKind::kToolbar);
     MIRA_TEST(zoom_brush_hit.kind == mira::HitKind::kToolbar);
-    const mira::HitRecord viewport_hit =
+    const mira::Hit viewport_hit =
         mira::guihit(gui, static_cast<mira::i32>(gui.layout.viewport.x + 24.0F),
                      static_cast<mira::i32>(gui.layout.viewport.y + 24.0F));
     MIRA_TEST(viewport_hit.kind == mira::HitKind::kViewport);
-    const mira::HitRecord visibility_hit =
+    const mira::Hit visibility_hit =
         mira::guihit(gui, static_cast<mira::i32>(gui.layout.layerrows.x + 7.0F),
                      static_cast<mira::i32>(gui.layout.layerrows.y + 9.0F));
     MIRA_TEST(visibility_hit.kind == mira::HitKind::kLayerVisibility);
@@ -716,7 +716,7 @@ auto main() -> int {
     MIRA_TEST(mira::layerselected(gui.layers[1]));
     MIRA_TEST(!mira::layerselected(gui.layers[0]));
 
-    const mira::HitRecord background_lock_hit =
+    const mira::Hit background_lock_hit =
         mira::guihit(gui, static_cast<mira::i32>(gui.layout.layerrows.x + 21.0F),
                      static_cast<mira::i32>(gui.layout.layerrows.y + 43.0F));
     MIRA_TEST(background_lock_hit.kind == mira::HitKind::kLayerLock);
@@ -752,7 +752,7 @@ auto main() -> int {
     MIRA_TEST(gui.renaming_layer == mira::kNoLayer);
     mira::guilayout(&gui, normal);
 
-    const mira::HitRecord opacity_hit =
+    const mira::Hit opacity_hit =
         mira::guihit(gui, static_cast<mira::i32>(gui.layout.layerrows.x + 40.0F),
                      static_cast<mira::i32>(gui.layout.layerrows.y + 62.0F));
     MIRA_TEST(opacity_hit.kind == mira::HitKind::kLayerOpacity);

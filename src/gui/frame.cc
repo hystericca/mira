@@ -54,9 +54,9 @@ void guilayout(GuiState *state, Screen screen) {
     impl::dialoglayout(state);
 }
 
-HitRecord guihit(const GuiState &state, i32 x, i32 y) {
-    HitRecord result = {};
-    for (const HitRecord hit : state.hits.span()) {
+Hit guihit(const GuiState &state, i32 x, i32 y) {
+    Hit result = {};
+    for (const Hit hit : state.hits.span()) {
         if (impl::contains(hit.rect, x, y) && hit.priority >= result.priority) {
             result = hit;
         }
@@ -72,7 +72,7 @@ void guievent(GuiState *state, std::span<const InputEvent> input) {
     for (const InputEvent event : input) {
         state->mouse_x = event.x;
         state->mouse_y = event.y;
-        const HitRecord hit = guihit(*state, event.x, event.y);
+        const Hit hit = guihit(*state, event.x, event.y);
         state->hot_kind = hit.kind;
         state->hot_index = hit.index;
 

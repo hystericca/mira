@@ -444,7 +444,7 @@ b8 workwheel(GuiState *state, i32 x, i32 y, i32 dx, i32 dy, u8 mods, HitKind hit
     return false;
 }
 
-b8 workmouse(GuiState *state, HitRecord hit, i32 x, i32 y, u8 button) {
+b8 workmouse(GuiState *state, Hit hit, i32 x, i32 y, u8 button) {
     if (button == 1 && hit.kind == HitKind::kViewport) {
         layerdone(state);
         state->active_menu = kNoMenu;

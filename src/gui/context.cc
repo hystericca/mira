@@ -52,7 +52,7 @@ void close(GuiState *state) {
 
 } // namespace
 
-void contextopen(GuiState *state, HitRecord hit, i32 x, i32 y) {
+void contextopen(GuiState *state, Hit hit, i32 x, i32 y) {
     layerdone(state);
     state->active_menu = kNoMenu;
     state->context_open = true;
@@ -90,7 +90,7 @@ void contextlayout(GuiState *state) {
     }
 }
 
-b8 contextmouse(GuiState *state, HitRecord hit) {
+b8 contextmouse(GuiState *state, Hit hit) {
     if (!state->context_open) {
         return false;
     }

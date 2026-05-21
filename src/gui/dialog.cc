@@ -133,7 +133,7 @@ void dialoglayout(GuiState *state) {
     addhit(state, state->layout.dialog_cancel, HitKind::kDialogButton, 1, 220);
 }
 
-b8 dialogmouse(GuiState *state, HitRecord hit) {
+b8 dialogmouse(GuiState *state, Hit hit) {
     if (!dialogactive(*state)) {
         return false;
     }

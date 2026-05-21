@@ -450,7 +450,7 @@ b8 toolkey(GuiState *state, Key key) {
     return true;
 }
 
-b8 toolmouse(GuiState *state, HitRecord hit) {
+b8 toolmouse(GuiState *state, Hit hit) {
     const ToolKind kind = toolkind(*state);
     if (hit.kind == HitKind::kTool) {
         layerdone(state);

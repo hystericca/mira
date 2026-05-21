@@ -255,7 +255,7 @@ void layerlayout(GuiState *state) {
     }
 }
 
-b8 layermouse(GuiState *state, HitRecord hit, i32 x) {
+b8 layermouse(GuiState *state, Hit hit, i32 x) {
     if (hit.kind == HitKind::kLayerVisibility && hit.index < state->layers.size()) {
         layerdone(state);
         state->active_menu = kNoMenu;

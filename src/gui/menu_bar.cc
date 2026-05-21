@@ -3,7 +3,7 @@
 namespace mira {
 namespace impl = gui;
 
-MenuAction menuaction(const GuiState &state, HitRecord hit) {
+MenuAction menuaction(const GuiState &state, Hit hit) {
     if (hit.kind == HitKind::kContextAction) {
         const std::span<const impl::MenuCommand> commands =
             impl::contextcommands(contextkind(state));
@@ -75,7 +75,7 @@ void menulayout(GuiState *state) {
     }
 }
 
-b8 menumouse(GuiState *state, HitRecord hit) {
+b8 menumouse(GuiState *state, Hit hit) {
     if (hit.kind == HitKind::kMenu) {
         layerdone(state);
         state->context_open = false;

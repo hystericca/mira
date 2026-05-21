@@ -522,20 +522,20 @@ inline void center_document(GuiState *state) {
 }
 
 void menulayout(GuiState *state);
-[[nodiscard]] b8 menumouse(GuiState *state, HitRecord hit);
+[[nodiscard]] b8 menumouse(GuiState *state, Hit hit);
 void doaction(GuiState *state, MenuAction action);
 void menudraw(const GuiState &state, DrawList *draws);
 
-void contextopen(GuiState *state, HitRecord hit, i32 x, i32 y);
+void contextopen(GuiState *state, Hit hit, i32 x, i32 y);
 void contextlayout(GuiState *state);
-[[nodiscard]] b8 contextmouse(GuiState *state, HitRecord hit);
+[[nodiscard]] b8 contextmouse(GuiState *state, Hit hit);
 [[nodiscard]] b8 contextkey(GuiState *state, Key key);
 void contextdraw(const GuiState &state, DrawList *draws);
 
 void aboutopen(GuiState *state);
 void dialogopen(GuiState *state);
 void dialoglayout(GuiState *state);
-[[nodiscard]] b8 dialogmouse(GuiState *state, HitRecord hit);
+[[nodiscard]] b8 dialogmouse(GuiState *state, Hit hit);
 [[nodiscard]] b8 dialogkey(GuiState *state, Key key);
 [[nodiscard]] b8 dialogtext(GuiState *state, char c);
 void dialogdraw(const GuiState &state, DrawList *draws);
@@ -544,14 +544,14 @@ void toollayout(GuiState *state);
 void tooltick(GuiState *state);
 [[nodiscard]] b8 toolanimating(const GuiState &state);
 [[nodiscard]] b8 toolkey(GuiState *state, Key key);
-[[nodiscard]] b8 toolmouse(GuiState *state, HitRecord hit);
+[[nodiscard]] b8 toolmouse(GuiState *state, Hit hit);
 void toolmove(GuiState *state, i32 x, i32 y, u8 buttons);
 void toolup(GuiState *state);
 void tooldraw(const GuiState &state, DrawList *draws);
 void toolpopupdraw(const GuiState &state, DrawList *draws);
 
 void layerlayout(GuiState *state);
-[[nodiscard]] b8 layermouse(GuiState *state, HitRecord hit, i32 x);
+[[nodiscard]] b8 layermouse(GuiState *state, Hit hit, i32 x);
 [[nodiscard]] b8 layerkey(GuiState *state, Key key);
 [[nodiscard]] b8 layertext(GuiState *state, char c);
 void layermove(GuiState *state, i32 x);
@@ -570,7 +570,7 @@ void worklayout(GuiState *state);
 void workcancel(GuiState *state);
 [[nodiscard]] b8 workwheel(GuiState *state, i32 x, i32 y, i32 dx, i32 dy, u8 mods,
                            HitKind hit_kind);
-[[nodiscard]] b8 workmouse(GuiState *state, HitRecord hit, i32 x, i32 y, u8 button);
+[[nodiscard]] b8 workmouse(GuiState *state, Hit hit, i32 x, i32 y, u8 button);
 void workmove(GuiState *state, i32 x, i32 y, u8 buttons);
 void workup(GuiState *state, i32 x, i32 y);
 void workdraw(const GuiState &state, DrawList *draws);

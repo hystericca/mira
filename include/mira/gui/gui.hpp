@@ -21,7 +21,7 @@ constexpr usize kMaxDraftStamps = 32768;
 constexpr usize kMaxStrokes = 1024;
 constexpr usize kMaxHistoryStamps = 32768;
 constexpr usize kMaxInputEvents = 128;
-constexpr usize kMaxHitRecords = 128;
+constexpr usize kMaxHits = 128;
 constexpr usize kMaxGuiActions = 16;
 constexpr usize kLayerNameBytes = 16;
 constexpr usize kToolNameBytes = 8;
@@ -184,14 +184,14 @@ struct GuiAction {
 };
 static_assert(sizeof(GuiAction) == 4);
 
-struct HitRecord {
+struct Hit {
     Rect rect;
     HitKind kind = HitKind::kNone;
     u8 index = 0;
     u16 priority = 0;
     u32 _pad = 0;
 };
-static_assert(sizeof(HitRecord) == 24);
+static_assert(sizeof(Hit) == 24);
 
 struct Document {
     // The drawable page size, measured in document pixels.
@@ -267,7 +267,7 @@ struct FrameState {
     Table<PaintStamp, kMaxPaintDelta> paint_delta;
     Table<PaintStamp, kMaxDraftStamps> draft_stamps;
     Table<u8, kMaxLayers> clear_slots;
-    Table<HitRecord, kMaxHitRecords> hits;
+    Table<Hit, kMaxHits> hits;
     Table<GuiAction, kMaxGuiActions> actions;
     GuiLayout layout;
     i32 mouse_x = -1;
@@ -350,8 +350,8 @@ void guiframe(GuiState *state, Screen screen, std::span<const InputEvent> input,
 [[nodiscard]] b8 layerdel(GuiState *state);
 [[nodiscard]] b8 layerrename(GuiState *state, u8 index, std::string_view name);
 [[nodiscard]] b8 layeredit(GuiState *state);
-[[nodiscard]] HitRecord guihit(const GuiState &state, i32 x, i32 y);
-[[nodiscard]] MenuAction menuaction(const GuiState &state, HitRecord hit);
+[[nodiscard]] Hit guihit(const GuiState &state, i32 x, i32 y);
+[[nodiscard]] MenuAction menuaction(const GuiState &state, Hit hit);
 [[nodiscard]] ContextKind contextkind(const GuiState &state);
 [[nodiscard]] const Layer *layercur(const GuiState &state);
 [[nodiscard]] const Tool *toolcur(const GuiState &state);
