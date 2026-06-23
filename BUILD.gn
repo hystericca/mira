@@ -26,7 +26,7 @@ action("mira_shader_headers") {
 source_set("mira_core") {
   configs += [ ":mira_cpp_config" ]
 
-  sources = [
+sources = [
     "include/mira/base/table.hpp",
     "include/mira/draw/draw.hpp",
     "include/mira/draw/font.hpp",
