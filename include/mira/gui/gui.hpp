@@ -11,31 +11,31 @@
 
 namespace mira {
 
-constexpr usize kMaxLayers = 16;
-constexpr usize kMaxTools = 8;
-constexpr usize kMaxTips = 8;
-constexpr usize kMaxSizes = 8;
-constexpr usize kMaxCoverages = 16;
-constexpr usize kMaxPaintDelta = 32768;
-constexpr usize kMaxDraftStamps = 32768;
-constexpr usize kMaxStrokes = 1024;
-constexpr usize kMaxHistoryStamps = 32768;
-constexpr usize kMaxInputEvents = 128;
-constexpr usize kMaxHits = 128;
-constexpr usize kMaxGuiActions = 16;
-constexpr usize kLayerNameBytes = 16;
-constexpr usize kToolNameBytes = 8;
-constexpr u8 kNoLayer = 0xFFU;
-constexpr u8 kNoMenu = 0xFFU;
-constexpr u8 kBackgroundTextureSlot = static_cast<u8>(kMaxLayers - 1U);
-constexpr i32 kDefaultDocumentWidth = 1360;
-constexpr i32 kDefaultDocumentHeight = 736;
-constexpr f32 kInitialViewZoom = 0.5F;
+constexpr usize kMaxLayers{16};
+constexpr usize kMaxTools{8};
+constexpr usize kMaxTips{8};
+constexpr usize kMaxSizes{8};
+constexpr usize kMaxCoverages{16};
+constexpr usize kMaxPaintDelta{32768};
+constexpr usize kMaxDraftStamps{32768};
+constexpr usize kMaxStrokes{1024};
+constexpr usize kMaxHistoryStamps{32768};
+constexpr usize kMaxInputEvents{128};
+constexpr usize kMaxHits{128};
+constexpr usize kMaxGuiActions{16};
+constexpr usize kLayerNameBytes{16};
+constexpr usize kToolNameBytes{8};
+constexpr u8 kNoLayer{0xFFU};
+constexpr u8 kNoMenu{0xFFU};
+constexpr u8 kBackgroundTextureSlot{static_cast<u8>(kMaxLayers - 1U)};
+constexpr i32 kDefaultDocumentWidth{1360};
+constexpr i32 kDefaultDocumentHeight{736};
+constexpr f32 kInitialViewZoom{0.5F};
 
-constexpr u8 kLayerVisible = 1U << 0U;
-constexpr u8 kLayerLocked = 1U << 1U;
-constexpr u8 kLayerSelected = 1U << 2U;
-constexpr u8 kLayerBottom = 1U << 3U;
+constexpr u8 kLayerVisible{1U << 0U};
+constexpr u8 kLayerLocked{1U << 1U};
+constexpr u8 kLayerSelected{1U << 2U};
+constexpr u8 kLayerBottom{1U << 3U};
 
 enum class LayerKind : u8 {
     kInk,
@@ -44,49 +44,49 @@ enum class LayerKind : u8 {
 };
 
 struct Layer {
-    u32 id = 0;
+    u32 id{0};
     std::array<char, kLayerNameBytes> name = {};
-    u8 flags = kLayerVisible;
-    u8 opacity_u8 = 255;
-    u8 layer_slot = 0;
+    u8 flags{kLayerVisible};
+    u8 opacity_u8{255};
+    u8 layer_slot{0};
     LayerKind kind = LayerKind::kInk;
 };
 static_assert(sizeof(Layer) == 24);
 
 struct Tool {
-    u32 id = 0;
+    u32 id{0};
     std::array<char, kToolNameBytes> name = {};
-    u8 selected = 0;
+    u8 selected{0};
     ToolKind kind = ToolKind::kPen;
-    u16 _pad = 0;
+    u16 _pad{0};
 };
 static_assert(sizeof(Tool) == 16);
 
 struct Tip {
-    u8 index = 0;
-    u8 selected = 0;
-    u16 _pad = 0;
+    u8 index{0};
+    u8 selected{0};
+    u16 _pad{0};
 };
 static_assert(sizeof(Tip) == 4);
 
 struct Size {
-    u8 index = 0;
-    u8 selected = 0;
-    u16 _pad = 0;
+    u8 index{0};
+    u8 selected{0};
+    u16 _pad{0};
 };
 static_assert(sizeof(Size) == 4);
 
 struct Coverage {
-    u8 index = 0;
-    u8 selected = 0;
-    u16 _pad = 0;
+    u8 index{0};
+    u8 selected{0};
+    u16 _pad{0};
 };
 static_assert(sizeof(Coverage) == 4);
 
 struct Stroke {
-    u32 layer_id = 0;
-    u32 first_stamp = 0;
-    u32 stamp_count = 0;
+    u32 layer_id{0};
+    u32 first_stamp{0};
+    u32 stamp_count{0};
     Rect affected = {};
 };
 static_assert(sizeof(Stroke) == 28);
@@ -100,8 +100,8 @@ enum class InputKind : u8 {
     kText,
 };
 
-constexpr u8 kInputCtrl = 1U << 0U;
-constexpr u8 kInputShift = 1U << 1U;
+constexpr u8 kInputCtrl{1U << 0U};
+constexpr u8 kInputShift{1U << 1U};
 
 enum class Key : u8 {
     kNone,
@@ -116,13 +116,13 @@ enum class Key : u8 {
 
 struct InputEvent {
     InputKind kind = InputKind::kMouseMove;
-    u8 button = 0;
-    u8 buttons = 0;
-    u8 mods = 0;
-    i32 x = 0;
-    i32 y = 0;
-    i32 dx = 0;
-    i32 dy = 0;
+    u8 button{0};
+    u8 buttons{0};
+    u8 mods{0};
+    i32 x{0};
+    i32 y{0};
+    i32 dx{0};
+    i32 dy{0};
 };
 static_assert(sizeof(InputEvent) == 20);
 
@@ -179,32 +179,32 @@ enum class GuiActionKind : u8 {
 
 struct GuiAction {
     GuiActionKind kind = GuiActionKind::kOpenImagePicker;
-    u8 _pad0 = 0;
-    u16 _pad1 = 0;
+    u8 _pad0{0};
+    u16 _pad1{0};
 };
 static_assert(sizeof(GuiAction) == 4);
 
 struct Hit {
     Rect rect;
     HitKind kind = HitKind::kNone;
-    u8 index = 0;
-    u16 priority = 0;
-    u32 _pad = 0;
+    u8 index{0};
+    u16 priority{0};
+    u32 _pad{0};
 };
 static_assert(sizeof(Hit) == 24);
 
 struct Document {
     // The drawable page size, measured in document pixels.
-    i32 width = kDefaultDocumentWidth;
-    i32 height = kDefaultDocumentHeight;
+    i32 width{kDefaultDocumentWidth};
+    i32 height{kDefaultDocumentHeight};
 };
 static_assert(sizeof(Document) == 8);
 
 struct View {
     // Document coordinate at the viewport origin, plus the current scale.
-    f32 x = 0.0F;
-    f32 y = 0.0F;
-    f32 zoom = 1.0F;
+    f32 x{0.0F};
+    f32 y{0.0F};
+    f32 zoom{1.0F};
 };
 static_assert(sizeof(View) == 12);
 
@@ -234,9 +234,9 @@ struct GuiLayout {
 struct DocumentState {
     Table<Layer, kMaxLayers> layers;
     Document document;
-    u32 next_layer_id = 1;
-    u8 curlayer = 0;
-    b8 recreate_layers = false;
+    u32 next_layer_id{1};
+    u8 curlayer{0};
+    b8 recreate_layers{false};
 };
 
 struct ToolState {
@@ -244,23 +244,23 @@ struct ToolState {
     Table<Tip, kMaxTips> tips;
     Table<Size, kMaxSizes> sizes;
     Table<Coverage, kMaxCoverages> coverages;
-    u8 curtool = 0;
-    u8 curtip = 3;
-    u8 cursize = 3;
-    u8 curcoverage = 0;
+    u8 curtool{0};
+    u8 curtip{3};
+    u8 cursize{3};
+    u8 curcoverage{0};
 };
 
 struct HistoryState {
     Table<Stroke, kMaxStrokes> strokes;
     Table<PaintStamp, kMaxHistoryStamps> history_stamps;
-    u32 stroke_cursor = 0;
-    u32 active_paint_first = 0;
-    u32 active_stroke_first = 0;
-    u32 active_stroke_count = 0;
-    u32 active_stroke_layer = 0;
+    u32 stroke_cursor{0};
+    u32 active_paint_first{0};
+    u32 active_stroke_first{0};
+    u32 active_stroke_count{0};
+    u32 active_stroke_layer{0};
     Rect active_stroke_rect = {};
-    b8 recording_stroke = false;
-    b8 replay_strokes = false;
+    b8 recording_stroke{false};
+    b8 replay_strokes{false};
 };
 
 struct FrameState {
@@ -270,53 +270,53 @@ struct FrameState {
     Table<Hit, kMaxHits> hits;
     Table<GuiAction, kMaxGuiActions> actions;
     GuiLayout layout;
-    i32 mouse_x = -1;
-    i32 mouse_y = -1;
+    i32 mouse_x{-1};
+    i32 mouse_y{-1};
     HitKind hot_kind = HitKind::kNone;
-    u8 hot_index = 0;
+    u8 hot_index{0};
     HitKind active_kind = HitKind::kNone;
-    u8 active_index = 0;
+    u8 active_index{0};
 };
 
 struct SessionState {
     View view;
-    i32 new_width = kDefaultDocumentWidth;
-    i32 new_height = kDefaultDocumentHeight;
-    u8 new_field = 0;
-    u8 active_menu = kNoMenu;
-    u8 context_target = kNoLayer;
-    u8 renaming_layer = kNoLayer;
-    i32 context_x = 0;
-    i32 context_y = 0;
-    f32 draft_start_x = 0.0F;
-    f32 draft_start_y = 0.0F;
-    f32 draft_x = 0.0F;
-    f32 draft_y = 0.0F;
-    f32 last_paint_x = 0.0F;
-    f32 last_paint_y = 0.0F;
-    f32 brush_t = 0.0F;
-    f32 brush_x = 0.0F;
-    f32 brush_y = 0.0F;
-    i16 last_pan_x = 0;
-    i16 last_pan_y = 0;
-    i16 brush_drag_x = 0;
-    i16 brush_drag_y = 0;
-    b8 initialized = false;
-    b8 view_initialized = false;
-    b8 painting = false;
-    b8 panning = false;
-    b8 setting_opacity = false;
-    b8 rename_replace = false;
-    b8 context_open = false;
-    b8 brush_open = false;
-    b8 brush_placed = false;
-    b8 moving_brush = false;
-    b8 about_dialog = false;
-    b8 new_dialog = false;
-    b8 new_replace = false;
-    b8 draft_active = false;
+    i32 new_width{kDefaultDocumentWidth};
+    i32 new_height{kDefaultDocumentHeight};
+    u8 new_field{0};
+    u8 active_menu{kNoMenu};
+    u8 context_target{kNoLayer};
+    u8 renaming_layer{kNoLayer};
+    i32 context_x{0};
+    i32 context_y{0};
+    f32 draft_start_x{0.0F};
+    f32 draft_start_y{0.0F};
+    f32 draft_x{0.0F};
+    f32 draft_y{0.0F};
+    f32 last_paint_x{0.0F};
+    f32 last_paint_y{0.0F};
+    f32 brush_t{0.0F};
+    f32 brush_x{0.0F};
+    f32 brush_y{0.0F};
+    i16 last_pan_x{0};
+    i16 last_pan_y{0};
+    i16 brush_drag_x{0};
+    i16 brush_drag_y{0};
+    b8 initialized{false};
+    b8 view_initialized{false};
+    b8 painting{false};
+    b8 panning{false};
+    b8 setting_opacity{false};
+    b8 rename_replace{false};
+    b8 context_open{false};
+    b8 brush_open{false};
+    b8 brush_placed{false};
+    b8 moving_brush{false};
+    b8 about_dialog{false};
+    b8 new_dialog{false};
+    b8 new_replace{false};
+    b8 draft_active{false};
     ToolKind draft_kind = ToolKind::kPen;
-    u8 draft_layer_slot = 0;
+    u8 draft_layer_slot{0};
 };
 
 struct GuiState : DocumentState,

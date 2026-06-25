@@ -6,7 +6,7 @@ namespace impl = gui;
 namespace {
 
 [[nodiscard]] auto background_index(const GuiState &state) -> usize {
-    for (usize index = 0; index < state.layers.size(); ++index) {
+    for (usize index{0}; index < state.layers.size(); ++index) {
         if (impl::isbackground(state.layers[index])) {
             return index;
         }
@@ -15,7 +15,7 @@ namespace {
 }
 
 [[nodiscard]] auto image_insert(const GuiState &state) -> usize {
-    const usize bottom = background_index(state);
+    const usize bottom{background_index(state)};
     if (state.curlayer < bottom) {
         return std::min(bottom, static_cast<usize>(state.curlayer) + 1U);
     }
@@ -52,13 +52,13 @@ bool layeradd(GuiState *state, std::string_view name) {
         state->layers.overflowed = true;
         return false;
     }
-    const u8 slot = impl::freeslot(*state);
+    const u8 slot{impl::freeslot(*state)};
     if (slot == kNoLayer) {
         state->layers.overflowed = true;
         return false;
     }
 
-    const u32 id = state->next_layer_id;
+    const u32 id{state->next_layer_id};
     ++state->next_layer_id;
     Layer layer = impl::mklayer(id, name.empty() ? "layer" : name, LayerKind::kInk, 255, true,
                                 false, false, slot, false);
@@ -66,7 +66,7 @@ bool layeradd(GuiState *state, std::string_view name) {
         impl::genlayername(&layer.name, id);
     }
 
-    const usize insert_at = impl::layerinsert(*state);
+    const usize insert_at{impl::layerinsert(*state)};
     if (!state->layers.insert(insert_at, layer)) {
         return false;
     }
@@ -86,18 +86,18 @@ u8 layerimage(GuiState *state, std::string_view name, u8 opacity) {
         state->layers.overflowed = true;
         return kNoLayer;
     }
-    const u8 slot = impl::freeslot(*state);
+    const u8 slot{impl::freeslot(*state)};
     if (slot == kNoLayer) {
         state->layers.overflowed = true;
         return kNoLayer;
     }
 
-    const u32 id = state->next_layer_id;
+    const u32 id{state->next_layer_id};
     ++state->next_layer_id;
     Layer layer = impl::mklayer(id, name.empty() ? "image" : name, LayerKind::kImage, opacity, true,
                                 true, false, slot, false);
 
-    const usize insert_at = image_insert(*state);
+    const usize insert_at{image_insert(*state)};
     if (!state->layers.insert(insert_at, layer)) {
         return kNoLayer;
     }
@@ -109,12 +109,12 @@ bool layerdel(GuiState *state) {
     if (state == nullptr || state->curlayer >= state->layers.size()) {
         return false;
     }
-    const usize remove_at = state->curlayer;
+    const usize remove_at{state->curlayer};
     const Layer &layer = state->layers[remove_at];
     if (impl::isbackground(layer)) {
         return false;
     }
-    const u8 slot = layer.layer_slot;
+    const u8 slot{layer.layer_slot};
     impl::historyclear(state);
     if (!state->layers.erase(remove_at)) {
         return false;
@@ -125,7 +125,7 @@ bool layerdel(GuiState *state) {
         state->renaming_layer = kNoLayer;
         return true;
     }
-    const usize next = std::min(remove_at, state->layers.size() - 1U);
+    const usize next{std::min(remove_at, state->layers.size() - 1U)};
     impl::select_layer(state, static_cast<u8>(next));
     state->renaming_layer = kNoLayer;
     state->rename_replace = false;
@@ -158,14 +158,14 @@ void opacityat(GuiState *state, u8 index, i32 x) {
     if (index >= state->layers.size()) {
         return;
     }
-    const f32 row_y = state->layout.layerrows.y + static_cast<f32>(index) * 36.0F;
+    const f32 row_y{state->layout.layerrows.y + static_cast<f32>(index) * 36.0F};
     const Rect bar = {
         .x = state->layout.layerrows.x + 22.0F,
         .y = row_y + 24.0F,
         .width = std::max(1.0F, state->layout.layerrows.width - 30.0F),
         .height = 4.0F,
     };
-    const f32 t = std::clamp((static_cast<f32>(x) - bar.x) / bar.width, 0.0F, 1.0F);
+    const f32 t{std::clamp((static_cast<f32>(x) - bar.x) / bar.width, 0.0F, 1.0F)};
     state->layers[index].opacity_u8 = static_cast<u8>(std::round(t * 255.0F));
 }
 
@@ -222,8 +222,8 @@ void layerdone(GuiState *state) {
 void layerlayout(GuiState *state) {
     addhit(state, state->layout.layers, HitKind::kSidebar, 0, 20);
 
-    for (usize index = 0; index < state->layers.size(); ++index) {
-        const f32 row_y = state->layout.layerrows.y + static_cast<f32>(index) * 36.0F;
+    for (usize index{0}; index < state->layers.size(); ++index) {
+        const f32 row_y{state->layout.layerrows.y + static_cast<f32>(index) * 36.0F};
         const Rect row = {
             .x = state->layout.layerrows.x,
             .y = row_y,
@@ -338,9 +338,9 @@ void layerdraw(const GuiState &state, DrawList *draws) {
     drawtext(draws, "layers", state.layout.layers.x + 8.0F, state.layout.layers.y + 5.0F,
              Tone::kBlack);
 
-    for (usize index = 0; index < state.layers.size(); ++index) {
+    for (usize index{0}; index < state.layers.size(); ++index) {
         const Layer &layer = state.layers[index];
-        const f32 row_y = state.layout.layerrows.y + static_cast<f32>(index) * 36.0F;
+        const f32 row_y{state.layout.layerrows.y + static_cast<f32>(index) * 36.0F};
         const Rect row = {
             .x = state.layout.layerrows.x,
             .y = row_y,
@@ -351,8 +351,8 @@ void layerdraw(const GuiState &state, DrawList *draws) {
             (state.hot_kind == HitKind::kLayerRow || state.hot_kind == HitKind::kLayerVisibility ||
              state.hot_kind == HitKind::kLayerLock || state.hot_kind == HitKind::kLayerOpacity) &&
             state.hot_index == index;
-        const b8 selected = layerselected(layer);
-        const b8 inverted = selected;
+        const b8 selected{layerselected(layer)};
+        const b8 inverted{selected};
         if (selected) {
             drawrect(draws, row, Tone::kBlack);
         } else if (hot_row) {
@@ -370,8 +370,7 @@ void layerdraw(const GuiState &state, DrawList *draws) {
         layernametext(draws, layer, row.x + 36.0F, row.y + 5.0F,
                       inverted ? Tone::kWhite : Tone::kBlack);
         if (state.renaming_layer == index) {
-            const f32 cursor_x =
-                row.x + 36.0F + static_cast<f32>(layername(layer).size()) * kFontWidth;
+            const f32 cursor_x{row.x + 36.0F + static_cast<f32>(layername(layer).size()) * kFontWidth};
             drawrect(draws, {.x = cursor_x, .y = row.y + 5.0F, .width = 1.0F, .height = 13.0F},
                      inverted ? Tone::kWhite : Tone::kBlack);
         }

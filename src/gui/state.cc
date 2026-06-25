@@ -78,17 +78,17 @@ void guiinit(GuiState *state) {
     state->draft_kind = ToolKind::kPen;
     state->draft_layer_slot = 0;
 
-    for (usize index = 0; index < kToolDefs.size(); ++index) {
+    for (usize index{0}; index < kToolDefs.size(); ++index) {
         impl::pushtool(state, static_cast<u32>(index + 1U), impl::kToolNames[index],
                        kToolDefs[index].kind, index == 0);
     }
-    for (u8 index = 0; index < 8; ++index) {
+    for (u8 index{0}; index < 8; ++index) {
         impl::pushtip(state, index, index == state->curtip);
     }
-    for (u8 index = 0; index < 8; ++index) {
+    for (u8 index{0}; index < 8; ++index) {
         impl::pushsize(state, index, index == state->cursize);
     }
-    for (u8 index = 0; index < kMaxCoverages; ++index) {
+    for (u8 index{0}; index < kMaxCoverages; ++index) {
         impl::pushcoverage(state, index, index == state->curcoverage);
     }
 
@@ -112,7 +112,7 @@ void docnew(GuiState *state, i32 width, i32 height) {
     };
     state->view_initialized = false;
     state->clear_slots.clear();
-    for (u8 slot = 0; slot < kMaxLayers; ++slot) {
+    for (u8 slot{0}; slot < kMaxLayers; ++slot) {
         impl::markclear(state, slot);
     }
     state->recreate_layers = true;

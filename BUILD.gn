@@ -3,7 +3,7 @@ config("mira_public_config") {
 }
 
 config("mira_cpp_config") {
-  cflags_cc = [ "-std=c++23" ]
+  cflags_cc = [ "-std=c++26" ]
 }
 
 draw_wgsl = "src/render/webgpu/shaders/draw.wgsl"

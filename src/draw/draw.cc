@@ -6,10 +6,10 @@ namespace mira {
 namespace {
 
 [[nodiscard]] Rect normalized(Rect rect) {
-    const f32 x1 = rect.x + rect.width;
-    const f32 y1 = rect.y + rect.height;
-    const f32 x0 = std::min(rect.x, x1);
-    const f32 y0 = std::min(rect.y, y1);
+    const f32 x1{rect.x + rect.width};
+    const f32 y1{rect.y + rect.height};
+    const f32 x0{std::min(rect.x, x1)};
+    const f32 y0{std::min(rect.y, y1)};
     return {
         .x = x0,
         .y = y0,
@@ -33,7 +33,7 @@ namespace {
 }
 
 [[nodiscard]] usize plane_index(DrawPlane plane) {
-    const usize index = static_cast<usize>(plane);
+    const usize index{static_cast<usize>(plane)};
     return std::min(index, kDrawPlaneCount - 1U);
 }
 
@@ -58,14 +58,14 @@ void DrawList::clear() {
 }
 
 void DrawList::begin_plane(DrawPlane next) {
-    const usize current = plane_index(plane);
-    const usize target = plane_index(next);
+    const usize current{plane_index(plane)};
+    const usize target{plane_index(next)};
     if (target <= current) {
         return;
     }
 
     const DrawPlaneStart tail = draw_tail(*this);
-    for (usize index = current + 1U; index <= target; ++index) {
+    for (usize index{current + 1U}; index <= target; ++index) {
         planes[index] = tail;
     }
     plane = static_cast<DrawPlane>(target);
@@ -76,7 +76,7 @@ usize DrawList::upload_bytes() const {
 }
 
 u32 DrawList::overflow_count() const {
-    u32 count = 0;
+    u32 count{0};
     count += rects.overflowed ? 1U : 0U;
     count += glyphs.overflowed ? 1U : 0U;
     count += icons.overflowed ? 1U : 0U;
@@ -91,7 +91,7 @@ DrawPlaneStart DrawList::plane_begin(DrawPlane draw_plane) const {
 }
 
 DrawPlaneStart DrawList::plane_end(DrawPlane draw_plane) const {
-    const usize index = plane_index(draw_plane);
+    const usize index{plane_index(draw_plane)};
     if (index < plane_index(plane)) {
         return planes[index + 1U];
     }
@@ -99,9 +99,9 @@ DrawPlaneStart DrawList::plane_end(DrawPlane draw_plane) const {
 }
 
 Screen screen_for(i32 width, i32 height) {
-    const i32 clamped_width = std::max(1, width);
-    const i32 clamped_height = std::max(1, height);
-    constexpr i32 kScale = 2;
+    const i32 clamped_width{std::max(1, width)};
+    const i32 clamped_height{std::max(1, height)};
+    constexpr i32 kScale{2};
     return {
         .scale = kScale,
         .width = std::max(1, (clamped_width + kScale - 1) / kScale),
@@ -130,13 +130,13 @@ b8 add_stroke(DrawList *list, Rect rect, Tone tone, f32 width) {
         return true;
     }
 
-    const f32 thick = std::max(1.0F, width);
-    const u32 value = tone_value(tone);
+    const f32 thick{std::max(1.0F, width)};
+    const u32 value{tone_value(tone)};
     if (r.width <= thick * 2.0F || r.height <= thick * 2.0F) {
         return add_rect_value(list, r, value);
     }
 
-    b8 ok = true;
+    b8 ok{true};
     ok = add_rect_value(list, {.x = r.x, .y = r.y, .width = r.width, .height = thick}, value) && ok;
     ok = add_rect_value(list,
                         {.x = r.x, .y = r.y + r.height - thick, .width = r.width, .height = thick},
@@ -158,10 +158,10 @@ b8 add_stroke(DrawList *list, Rect rect, Tone tone, f32 width) {
 }
 
 b8 add_text(DrawList *list, std::string_view text, f32 x, f32 y, Tone tone, f32 scale) {
-    const f32 clamped_scale = std::max(1.0F, scale);
-    const u32 value = tone_value(tone);
-    b8 ok = true;
-    f32 cursor = x;
+    const f32 clamped_scale{std::max(1.0F, scale)};
+    const u32 value{tone_value(tone)};
+    b8 ok{true};
+    f32 cursor{x};
     for (const char c : text) {
         if (c != ' ') {
             ok = list->glyphs.push({
@@ -179,7 +179,7 @@ b8 add_text(DrawList *list, std::string_view text, f32 x, f32 y, Tone tone, f32 
 }
 
 b8 add_icon(DrawList *list, Icon icon, f32 x, f32 y, Tone tone, f32 scale) {
-    const f32 clamped_scale = std::max(0.125F, scale);
+    const f32 clamped_scale{std::max(0.125F, scale)};
     return list->icons.push({
         .x = x,
         .y = y,

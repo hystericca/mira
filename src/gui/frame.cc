@@ -8,15 +8,15 @@ void guilayout(GuiState *state, Screen screen) {
         guiinit(state);
     }
 
-    const f32 width = static_cast<f32>(std::max(1, screen.width));
-    const f32 height = static_cast<f32>(std::max(1, screen.height));
-    const f32 menu_height = std::min(18.0F, height);
-    const f32 toolbar_width = std::min(92.0F, std::max(84.0F, width * 0.15F));
-    const f32 layers_width = std::min(160.0F, std::max(124.0F, width * 0.25F));
-    const f32 viewport_x = toolbar_width;
-    const f32 viewport_width = std::max(1.0F, width - toolbar_width - layers_width);
-    const f32 layers_x = viewport_x + viewport_width;
-    const f32 body_height = std::max(1.0F, height - menu_height);
+    const f32 width{static_cast<f32>(std::max(1, screen.width))};
+    const f32 height{static_cast<f32>(std::max(1, screen.height))};
+    const f32 menu_height{std::min(18.0F, height)};
+    const f32 toolbar_width{std::min(92.0F, std::max(84.0F, width * 0.15F))};
+    const f32 layers_width{std::min(160.0F, std::max(124.0F, width * 0.25F))};
+    const f32 viewport_x{toolbar_width};
+    const f32 viewport_width{std::max(1.0F, width - toolbar_width - layers_width)};
+    const f32 layers_x{viewport_x + viewport_width};
+    const f32 body_height{std::max(1.0F, height - menu_height)};
 
     state->layout = {
         .window = {.x = 0.0F, .y = 0.0F, .width = width, .height = height},

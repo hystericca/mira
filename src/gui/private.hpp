@@ -27,10 +27,10 @@ inline constexpr std::array<MenuItem, 5> kMenuItems = {{
     {"view", 4},
 }};
 
-inline constexpr u8 kMiraMenu = 0;
-inline constexpr u8 kFileMenu = 1;
-inline constexpr u8 kEditMenu = 2;
-inline constexpr u8 kLayerMenu = 3;
+inline constexpr u8 kMiraMenu{0};
+inline constexpr u8 kFileMenu{1};
+inline constexpr u8 kEditMenu{2};
+inline constexpr u8 kLayerMenu{3};
 
 inline constexpr std::array<MenuCommand, 1> kMiraMenuCommands = {{
     {"about", MenuAction::kMiraAbout},
@@ -113,8 +113,8 @@ static_assert(kToolNames.size() == kToolDefs.size());
 }
 
 [[nodiscard]] inline auto contains(Rect rect, i32 x, i32 y) -> b8 {
-    const f32 px = static_cast<f32>(x);
-    const f32 py = static_cast<f32>(y);
+    const f32 px{static_cast<f32>(x)};
+    const f32 py{static_cast<f32>(y)};
     return px >= rect.x && py >= rect.y && px < rect.x + rect.width && py < rect.y + rect.height;
 }
 
@@ -125,10 +125,10 @@ static_assert(kToolNames.size() == kToolDefs.size());
 }
 
 [[nodiscard]] inline auto intersectrect(Rect a, Rect b) -> Rect {
-    const f32 x0 = std::max(a.x, b.x);
-    const f32 y0 = std::max(a.y, b.y);
-    const f32 x1 = std::min(a.x + a.width, b.x + b.width);
-    const f32 y1 = std::min(a.y + a.height, b.y + b.height);
+    const f32 x0{std::max(a.x, b.x)};
+    const f32 y0{std::max(a.y, b.y)};
+    const f32 x1{std::min(a.x + a.width, b.x + b.width)};
+    const f32 y1{std::min(a.y + a.height, b.y + b.height)};
     return {
         .x = x0,
         .y = y0,
@@ -151,7 +151,7 @@ static_assert(kToolNames.size() == kToolDefs.size());
 }
 
 [[nodiscard]] inline auto menux(u8 menu) -> f32 {
-    f32 menu_x = 4.0F;
+    f32 menu_x{4.0F};
     for (const MenuItem item : kMenuItems) {
         if (item.index == menu) {
             return menu_x;
@@ -162,7 +162,7 @@ static_assert(kToolNames.size() == kToolDefs.size());
 }
 
 [[nodiscard]] inline auto menucmdwidth(u8 menu) -> f32 {
-    f32 width = 45.0F;
+    f32 width{45.0F};
     for (const MenuCommand command : menucommands(menu)) {
         width = std::max(width, static_cast<f32>(command.text.size()) * kFontWidth + 10.0F);
     }
@@ -180,7 +180,7 @@ static_assert(kToolNames.size() == kToolDefs.size());
 
 template <usize N> void copy_name(std::array<char, N> *out, std::string_view name) {
     out->fill('\0');
-    usize index = 0;
+    usize index{0};
     while (index + 1U < N && index < name.size()) {
         (*out)[index] = name[index];
         ++index;
@@ -188,7 +188,7 @@ template <usize N> void copy_name(std::array<char, N> *out, std::string_view nam
 }
 
 [[nodiscard]] inline auto fixname(std::span<const char> name) -> std::string_view {
-    usize length = 0;
+    usize length{0};
     for (const char c : name) {
         if (c == '\0') {
             break;
@@ -256,7 +256,7 @@ inline void markclear(GuiState *state, u8 slot) {
 }
 
 [[nodiscard]] inline auto freeslot(const GuiState &state) -> u8 {
-    for (u8 slot = 0; slot + 1U < kMaxLayers; ++slot) {
+    for (u8 slot{0}; slot + 1U < kMaxLayers; ++slot) {
         if (!slotused(state, slot)) {
             return slot;
         }
@@ -267,15 +267,15 @@ inline void markclear(GuiState *state, u8 slot) {
 inline void genlayername(std::array<char, kLayerNameBytes> *name, u32 id) {
     copy_name(name, "layer ");
     std::array<char, 10> digits = {};
-    usize count = 0;
-    u32 value = id;
+    usize count{0};
+    u32 value{id};
     do {
         digits[count] = static_cast<char>('0' + (value % 10U));
         value /= 10U;
         ++count;
     } while (value != 0U && count < sizeof(digits));
 
-    usize out = 6;
+    usize out{6};
     while (count != 0U && out + 1U < kLayerNameBytes) {
         --count;
         (*name)[out] = digits[count];
@@ -328,7 +328,7 @@ inline void select_layer(GuiState *state, u8 index) {
         return;
     }
     state->curlayer = index;
-    for (usize layer_index = 0; layer_index < state->layers.size(); ++layer_index) {
+    for (usize layer_index{0}; layer_index < state->layers.size(); ++layer_index) {
         setlayerflag(&state->layers[layer_index], kLayerSelected, layer_index == index);
     }
 }
@@ -338,7 +338,7 @@ inline void select_tool(GuiState *state, u8 index) {
         return;
     }
     state->curtool = index;
-    for (usize tool_index = 0; tool_index < state->tools.size(); ++tool_index) {
+    for (usize tool_index{0}; tool_index < state->tools.size(); ++tool_index) {
         state->tools[tool_index].selected = tool_index == index ? 1U : 0U;
     }
 }
@@ -348,7 +348,7 @@ inline void select_tip(GuiState *state, u8 index) {
         return;
     }
     state->curtip = index;
-    for (usize tip_index = 0; tip_index < state->tips.size(); ++tip_index) {
+    for (usize tip_index{0}; tip_index < state->tips.size(); ++tip_index) {
         state->tips[tip_index].selected = tip_index == index ? 1U : 0U;
     }
 }
@@ -358,7 +358,7 @@ inline void select_size(GuiState *state, u8 index) {
         return;
     }
     state->cursize = index;
-    for (usize size_index = 0; size_index < state->sizes.size(); ++size_index) {
+    for (usize size_index{0}; size_index < state->sizes.size(); ++size_index) {
         state->sizes[size_index].selected = size_index == index ? 1U : 0U;
     }
 }
@@ -368,7 +368,7 @@ inline void select_coverage(GuiState *state, u8 index) {
         return;
     }
     state->curcoverage = index;
-    for (usize coverage_index = 0; coverage_index < state->coverages.size(); ++coverage_index) {
+    for (usize coverage_index{0}; coverage_index < state->coverages.size(); ++coverage_index) {
         state->coverages[coverage_index].selected = coverage_index == index ? 1U : 0U;
     }
 }

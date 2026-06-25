@@ -6,12 +6,12 @@
 
 namespace mira {
 
-constexpr u32 kFontFirst = 32;
-constexpr u32 kFontCount = 95;
-constexpr u32 kFontWidthPixels = 8;
-constexpr u32 kFontHeightPixels = 13;
-constexpr u32 kFontAscentPixels = 10;
-constexpr u32 kFontStorageRows = 16;
+constexpr u32 kFontFirst{32};
+constexpr u32 kFontCount{95};
+constexpr u32 kFontWidthPixels{8};
+constexpr u32 kFontHeightPixels{13};
+constexpr u32 kFontAscentPixels{10};
+constexpr u32 kFontStorageRows{16};
 
 struct FontGlyph {
     std::array<u32, 4> metrics = {};

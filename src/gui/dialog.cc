@@ -7,14 +7,14 @@ namespace {
     out->fill('\0');
     value = std::max(0, value);
     std::array<char, 8> digits = {};
-    usize count = 0;
+    usize count{0};
     do {
         digits[count] = static_cast<char>('0' + (value % 10));
         value /= 10;
         ++count;
     } while (value != 0 && count < digits.size());
 
-    usize index = 0;
+    usize index{0};
     while (count != 0 && index < out->size()) {
         --count;
         (*out)[index] = digits[count];
@@ -83,10 +83,10 @@ void dialoglayout(GuiState *state) {
     }
 
     if (state->about_dialog) {
-        const f32 width = std::min(248.0F, std::max(160.0F, state->layout.window.width - 12.0F));
-        const f32 height = 116.0F;
-        const f32 x = std::floor((state->layout.window.width - width) * 0.5F);
-        const f32 y = std::floor((state->layout.window.height - height) * 0.5F);
+        const f32 width{std::min(248.0F, std::max(160.0F, state->layout.window.width - 12.0F))};
+        const f32 height{116.0F};
+        const f32 x{std::floor((state->layout.window.width - width) * 0.5F)};
+        const f32 y{std::floor((state->layout.window.height - height) * 0.5F)};
         state->layout.dialog = {.x = x, .y = y, .width = width, .height = height};
         state->layout.dialog_logo = {
             .x = x + 14.0F,
@@ -106,10 +106,10 @@ void dialoglayout(GuiState *state) {
         return;
     }
 
-    const f32 width = std::min(176.0F, std::max(120.0F, state->layout.window.width - 12.0F));
-    const f32 height = 104.0F;
-    const f32 x = std::floor((state->layout.window.width - width) * 0.5F);
-    const f32 y = std::floor((state->layout.window.height - height) * 0.5F);
+    const f32 width{std::min(176.0F, std::max(120.0F, state->layout.window.width - 12.0F))};
+    const f32 height{104.0F};
+    const f32 x{std::floor((state->layout.window.width - width) * 0.5F)};
+    const f32 y{std::floor((state->layout.window.height - height) * 0.5F)};
     state->layout.dialog = {.x = x, .y = y, .width = width, .height = height};
     state->layout.dialog_width = {.x = x + 58.0F, .y = y + 28.0F, .width = 58.0F, .height = 16.0F};
     state->layout.dialog_height = {
@@ -228,8 +228,8 @@ void dialogdraw(const GuiState &state, DrawList *draws) {
         drawtext(draws, "about", state.layout.dialog.x + 5.0F, state.layout.dialog.y + 4.0F,
                  Tone::kWhite);
         drawrect(draws, state.layout.dialog_logo, Tone::kBlack);
-        const f32 text_x = state.layout.dialog_logo.x + state.layout.dialog_logo.width + 11.0F;
-        const f32 text_y = state.layout.dialog_logo.y + 1.0F;
+        const f32 text_x{state.layout.dialog_logo.x + state.layout.dialog_logo.width + 11.0F};
+        const f32 text_y{state.layout.dialog_logo.y + 1.0F};
         drawtext(draws, "THIS PROJECT IS", text_x, text_y, Tone::kBlack);
         drawtext(draws, "PERSONAL", text_x, text_y + 12.0F, Tone::kBlack);
         drawtext(draws, "DONT BOTHER ME", text_x, text_y + 24.0F, Tone::kBlack);

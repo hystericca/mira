@@ -14,7 +14,7 @@ template <typename T, usize Capacity> class Table {
     static_assert(std::is_trivially_copyable_v<T> && std::is_trivially_destructible_v<T>);
 
   public:
-    b8 overflowed = false;
+    b8 overflowed{false};
 
     constexpr Table() = default;
     Table(const Table &) = delete;
@@ -31,7 +31,7 @@ template <typename T, usize Capacity> class Table {
         if (size >= size_) {
             return;
         }
-        for (usize index = size; index < size_; ++index) {
+        for (usize index{size}; index < size_; ++index) {
             values_[index] = {};
         }
         size_ = size;
@@ -82,7 +82,7 @@ template <typename T, usize Capacity> class Table {
         if (index > size_) {
             index = size_;
         }
-        for (usize move_index = size_; move_index > index; --move_index) {
+        for (usize move_index{size_}; move_index > index; --move_index) {
             values_[move_index] = std::move(values_[move_index - 1]);
         }
         values_[index] = value;
@@ -98,7 +98,7 @@ template <typename T, usize Capacity> class Table {
         if (index > size_) {
             index = size_;
         }
-        for (usize move_index = size_; move_index > index; --move_index) {
+        for (usize move_index{size_}; move_index > index; --move_index) {
             values_[move_index] = std::move(values_[move_index - 1]);
         }
         values_[index] = std::move(value);
@@ -110,7 +110,7 @@ template <typename T, usize Capacity> class Table {
         if (index >= size_) {
             return false;
         }
-        for (usize move_index = index; move_index + 1 < size_; ++move_index) {
+        for (usize move_index{index}; move_index + 1 < size_; ++move_index) {
             values_[move_index] = std::move(values_[move_index + 1]);
         }
         values_[size_ - 1] = {};
@@ -123,7 +123,7 @@ template <typename T, usize Capacity> class Table {
 
   private:
     std::array<T, Capacity> values_ = {};
-    usize size_ = 0;
+    usize size_{0};
 };
 
 } // namespace mira

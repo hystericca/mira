@@ -41,9 +41,9 @@ enum class ToolAction : u8 {
     kZoom,
 };
 
-constexpr u8 kToolUsesSize = 1U << 0U;
-constexpr u8 kToolUsesTip = 1U << 1U;
-constexpr u8 kToolUsesCoverage = 1U << 2U;
+constexpr u8 kToolUsesSize{1U << 0U};
+constexpr u8 kToolUsesTip{1U << 1U};
+constexpr u8 kToolUsesCoverage{1U << 2U};
 
 struct ToolDef {
     ToolKind kind = ToolKind::kPen;
@@ -52,18 +52,18 @@ struct ToolDef {
     StrokeKind stroke = StrokeKind::kNone;
     TraceKind trace = TraceKind::kNone;
     ToolAction action = ToolAction::kNone;
-    u8 flags = 0;
-    u8 size = 0;
-    u8 tip = 0;
+    u8 flags{0};
+    u8 size{0};
+    u8 tip{0};
 };
 static_assert(sizeof(ToolDef) == 9);
 
 struct Brush {
-    f32 diameter = 1.0F;
+    f32 diameter{1.0F};
     Tone tone = Tone::kBlack;
-    u8 tip = 0;
-    u8 coverage = 0;
-    u8 _pad = 0;
+    u8 tip{0};
+    u8 coverage{0};
+    u8 _pad{0};
 };
 static_assert(sizeof(Brush) == 8);
 
@@ -115,7 +115,7 @@ static_assert(static_cast<usize>(ToolKind::kErase) + 1U == kToolDefs.size());
 }
 
 [[nodiscard]] constexpr auto tooldef(ToolKind kind) -> ToolDef {
-    const usize index = toolindex(kind);
+    const usize index{toolindex(kind)};
     return index < kToolDefs.size() ? kToolDefs[index] : kToolDefs[0];
 }
 

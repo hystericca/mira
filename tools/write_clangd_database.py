@@ -84,13 +84,23 @@ def main():
     source = Path(sys.argv[1])
     output = Path(sys.argv[2])
     entries = json.loads(source.read_text())
+    mira_root = str(Path(__file__).resolve().parent.parent)
+
     filtered = []
     for entry in entries:
         if not keep_entry(entry):
             continue
         next_entry = dict(entry)
+        
+        if "file" in next_entry:
+            next_entry["file"] = next_entry["file"].replace("../../mira", mira_root)
+            
         if "command" in next_entry:
-            next_entry["command"] = scrub_command(next_entry["command"])
+            cmd = next_entry["command"]
+            cmd = scrub_command(cmd)
+            cmd = cmd.replace("../../mira", mira_root)
+            next_entry["command"] = cmd
+            
         filtered.append(next_entry)
 
     if output.is_symlink():

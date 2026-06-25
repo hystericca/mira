@@ -29,7 +29,7 @@ namespace {
 }
 
 [[nodiscard]] auto commandwidth(std::span<const MenuCommand> commands) -> f32 {
-    f32 width = 54.0F;
+    f32 width{54.0F};
     for (const MenuCommand command : commands) {
         width = std::max(width, static_cast<f32>(command.text.size()) * kFontWidth + 10.0F);
     }
@@ -76,16 +76,16 @@ void contextlayout(GuiState *state) {
         return;
     }
 
-    const f32 width = commandwidth(commands);
-    const f32 height = static_cast<f32>(commands.size()) * 15.0F;
-    const f32 x = std::clamp(static_cast<f32>(state->context_x), 0.0F,
-                             std::max(0.0F, state->layout.window.width - width));
-    const f32 y = std::clamp(static_cast<f32>(state->context_y), 0.0F,
-                             std::max(0.0F, state->layout.window.height - height));
+    const f32 width{commandwidth(commands)};
+    const f32 height{static_cast<f32>(commands.size()) * 15.0F};
+    const f32 x{std::clamp(static_cast<f32>(state->context_x), 0.0F,
+                             std::max(0.0F, state->layout.window.width - width))};
+    const f32 y{std::clamp(static_cast<f32>(state->context_y), 0.0F,
+                             std::max(0.0F, state->layout.window.height - height))};
     state->layout.context = {.x = x, .y = y, .width = width, .height = height};
 
     addhit(state, state->layout.context, HitKind::kContextMenu, 0, 150);
-    for (u8 index = 0; index < static_cast<u8>(commands.size()); ++index) {
+    for (u8 index{0}; index < static_cast<u8>(commands.size()); ++index) {
         addhit(state, commandrect(*state, index), HitKind::kContextAction, index, 170);
     }
 }
@@ -124,7 +124,7 @@ void contextdraw(const GuiState &state, DrawList *draws) {
     drawplane(draws, DrawPlane::kMenu);
     drawrect(draws, state.layout.context, Tone::kWhite);
     drawstroke(draws, state.layout.context, Tone::kBlack);
-    for (u8 index = 0; index < static_cast<u8>(commands.size()); ++index) {
+    for (u8 index{0}; index < static_cast<u8>(commands.size()); ++index) {
         const Rect item = commandrect(state, index);
         const b8 hot = state.hot_kind == HitKind::kContextAction && state.hot_index == index;
         if (hot) {

@@ -107,19 +107,19 @@ Icon coverageicon(u8 index) {
 namespace mira::gui {
 namespace {
 
-constexpr f32 kBrushPanelWidth = 166.0F;
-constexpr f32 kBrushPanelHeight = 312.0F;
-constexpr f32 kCoveragePanelHeight = 84.0F;
-constexpr f32 kBrushHeaderHeight = 17.0F;
-constexpr usize kCoverageColumns = 8;
-constexpr f32 kCoverageLabelY = 52.0F;
-constexpr f32 kCoverageLabelYNoSize = 24.0F;
-constexpr f32 kCoverageStripY = 64.0F;
-constexpr f32 kCoverageStripYNoSize = 36.0F;
-constexpr f32 kCoverageSlotHeight = 15.0F;
-constexpr f32 kTipLabelY = 102.0F;
-constexpr f32 kTipRowY = 113.0F;
-constexpr f32 kTipRowHeight = 24.0F;
+constexpr f32 kBrushPanelWidth{166.0F};
+constexpr f32 kBrushPanelHeight{312.0F};
+constexpr f32 kCoveragePanelHeight{84.0F};
+constexpr f32 kBrushHeaderHeight{17.0F};
+constexpr usize kCoverageColumns{8};
+constexpr f32 kCoverageLabelY{52.0F};
+constexpr f32 kCoverageLabelYNoSize{24.0F};
+constexpr f32 kCoverageStripY{64.0F};
+constexpr f32 kCoverageStripYNoSize{36.0F};
+constexpr f32 kCoverageSlotHeight{15.0F};
+constexpr f32 kTipLabelY{102.0F};
+constexpr f32 kTipRowY{113.0F};
+constexpr f32 kTipRowHeight{24.0F};
 
 [[nodiscard]] f32 smooth(f32 t) { return t * t * (3.0F - (2.0F * t)); }
 
@@ -191,7 +191,7 @@ void clampbrush(GuiState *state, f32 height) {
 }
 
 [[nodiscard]] Rect panelsizehit(const GuiState &state, u8 index) {
-    const f32 slot = (state.layout.brush_panel.width - 34.0F) / 8.0F;
+    const f32 slot{(state.layout.brush_panel.width - 34.0F) / 8.0F};
     return {
         .x = state.layout.brush_panel.x + 17.0F + (static_cast<f32>(index) * slot),
         .y = state.layout.brush_panel.y + 36.0F,
@@ -201,9 +201,9 @@ void clampbrush(GuiState *state, f32 height) {
 }
 
 [[nodiscard]] Rect coveragehit(const GuiState &state, u8 index) {
-    const f32 slot = (state.layout.brush_panel.width - 14.0F) / static_cast<f32>(kCoverageColumns);
-    const usize column = static_cast<usize>(index) % kCoverageColumns;
-    const usize row = static_cast<usize>(index) / kCoverageColumns;
+    const f32 slot{(state.layout.brush_panel.width - 14.0F) / static_cast<f32>(kCoverageColumns)};
+    const usize column{static_cast<usize>(index) % kCoverageColumns};
+    const usize row{static_cast<usize>(index) / kCoverageColumns};
     return {
         .x = state.layout.brush_panel.x + 7.0F + (static_cast<f32>(column) * slot),
         .y = state.layout.brush_panel.y + coveragestripy(toolkind(state)) +
@@ -237,7 +237,7 @@ void drawsizevalue(const GuiState &state, DrawList *draws, f32 x, f32 y, Tone to
 }
 
 void drawtipstamp(DrawList *draws, u8 tip, f32 center_x, f32 center_y, Tone ink, f32 scale) {
-    const f32 clamped_scale = std::max(0.375F, scale);
+    const f32 clamped_scale{std::max(0.375F, scale)};
     drawicon(draws, tipicon(tip), center_x - (4.0F * clamped_scale),
              center_y - (4.0F * clamped_scale), ink, clamped_scale);
 }
@@ -249,13 +249,13 @@ void drawtipstamp(DrawList *draws, u8 tip, f32 center_x, f32 center_y, Tone ink,
 void drawcleanstroke(DrawList *draws, Rect row, u8 size, Tone ink, b8 square) {
     static constexpr std::array<f32, 8> kWave = {-1.0F, -2.0F, -1.0F, 1.0F,
                                                  2.0F,  1.0F,  0.0F,  -1.0F};
-    const f32 x0 = row.x + 48.0F;
-    const f32 y0 = row.y + (row.height * 0.5F);
-    const f32 step = 11.5F;
-    const f32 thick = previewwidth(size);
-    for (usize segment = 0; segment < kWave.size(); ++segment) {
+    const f32 x0{row.x + 48.0F};
+    const f32 y0{row.y + (row.height * 0.5F)};
+    const f32 step{11.5F};
+    const f32 thick{previewwidth(size)};
+    for (usize segment{0}; segment < kWave.size(); ++segment) {
         const b8 end = segment == 0 || segment + 1U == kWave.size();
-        const f32 segment_thick = square || !end ? thick : std::max(1.0F, thick - 2.0F);
+        const f32 segment_thick{square || !end ? thick : std::max(1.0F, thick - 2.0F)};
         drawrect(draws,
                  {.x = x0 + (static_cast<f32>(segment) * step),
                   .y = y0 + kWave[segment] - (segment_thick * 0.5F),
@@ -268,12 +268,12 @@ void drawcleanstroke(DrawList *draws, Rect row, u8 size, Tone ink, b8 square) {
 void drawslashstroke(DrawList *draws, Rect row, b8 rising, Tone ink) {
     static constexpr std::array<f32, 8> kWave = {-1.0F, -2.0F, -1.0F, 1.0F,
                                                  2.0F,  1.0F,  0.0F,  -1.0F};
-    const f32 x0 = row.x + 48.0F;
-    const f32 y0 = row.y + (row.height * 0.5F);
-    const f32 step = 11.5F;
-    for (usize segment = 0; segment < kWave.size(); ++segment) {
-        for (u8 line = 0; line < 3; ++line) {
-            const f32 offset = rising ? static_cast<f32>(line) : static_cast<f32>(2U - line);
+    const f32 x0{row.x + 48.0F};
+    const f32 y0{row.y + (row.height * 0.5F)};
+    const f32 step{11.5F};
+    for (usize segment{0}; segment < kWave.size(); ++segment) {
+        for (u8 line{0}; line < 3; ++line) {
+            const f32 offset{rising ? static_cast<f32>(line) : static_cast<f32>(2U - line)};
             drawrect(draws,
                      {.x = x0 + (static_cast<f32>(segment) * step) + offset,
                       .y = y0 + kWave[segment] + static_cast<f32>(line) - 2.0F,
@@ -287,11 +287,11 @@ void drawslashstroke(DrawList *draws, Rect row, b8 rising, Tone ink) {
 void drawrakestroke(DrawList *draws, Rect row, Tone ink) {
     static constexpr std::array<f32, 8> kWave = {-1.0F, -2.0F, -1.0F, 1.0F,
                                                  2.0F,  1.0F,  0.0F,  -1.0F};
-    const f32 x0 = row.x + 48.0F;
-    const f32 y0 = row.y + (row.height * 0.5F);
-    const f32 step = 11.5F;
-    for (u8 line = 0; line < 4; ++line) {
-        for (usize segment = 0; segment < kWave.size(); ++segment) {
+    const f32 x0{row.x + 48.0F};
+    const f32 y0{row.y + (row.height * 0.5F)};
+    const f32 step{11.5F};
+    for (u8 line{0}; line < 4; ++line) {
+        for (usize segment{0}; segment < kWave.size(); ++segment) {
             drawrect(draws,
                      {.x = x0 + (static_cast<f32>(segment) * step),
                       .y = y0 + kWave[segment] + static_cast<f32>(line) - 2.0F,
@@ -307,7 +307,7 @@ void drawscatterstroke(DrawList *draws, Rect row, Tone ink) {
                                                    98.0F, 106.0F, 114.0F, 121.0F, 130.0F, 139.0F};
     static constexpr std::array<f32, 12> kDotsY = {10.0F, 13.0F, 9.0F,  12.0F, 11.0F, 14.0F,
                                                    9.0F,  12.0F, 10.0F, 13.0F, 9.0F,  12.0F};
-    for (usize index = 0; index < kDotsX.size(); ++index) {
+    for (usize index{0}; index < kDotsX.size(); ++index) {
         drawrect(draws,
                  {.x = row.x + kDotsX[index],
                   .y = row.y + kDotsY[index],
@@ -376,8 +376,8 @@ void toollayout(GuiState *state) {
         state->layout.brush_panel = {};
     }
 
-    for (usize index = 0; index < state->tools.size(); ++index) {
-        const f32 row_y = state->layout.tools.y + static_cast<f32>(index) * 24.0F;
+    for (usize index{0}; index < state->tools.size(); ++index) {
+        const f32 row_y{state->layout.tools.y + static_cast<f32>(index) * 24.0F};
         addhit(state,
                {.x = state->layout.tools.x,
                 .y = row_y,
@@ -387,8 +387,8 @@ void toollayout(GuiState *state) {
     }
 
     if (tiptool(kind)) {
-        for (usize index = 0; index < state->tips.size(); ++index) {
-            const f32 row_y = state->layout.tips.y + static_cast<f32>(index) * 24.0F;
+        for (usize index{0}; index < state->tips.size(); ++index) {
+            const f32 row_y{state->layout.tips.y + static_cast<f32>(index) * 24.0F};
             addhit(state,
                    {.x = state->layout.tips.x,
                     .y = row_y,
@@ -407,17 +407,17 @@ void toollayout(GuiState *state) {
         addhit(state, brushtitle(*state), HitKind::kBrushTitle, 0, 180);
         addhit(state, brushclose(*state), HitKind::kBrushClose, 0, 190);
         if (sizetool(kind)) {
-            for (usize index = 0; index < state->sizes.size(); ++index) {
+            for (usize index{0}; index < state->sizes.size(); ++index) {
                 addhit(state, panelsizehit(*state, static_cast<u8>(index)), HitKind::kSize,
                        static_cast<u8>(index), 175);
             }
         }
-        for (usize index = 0; index < state->coverages.size(); ++index) {
+        for (usize index{0}; index < state->coverages.size(); ++index) {
             addhit(state, coveragehit(*state, static_cast<u8>(index)), HitKind::kCoverage,
                    static_cast<u8>(index), 170);
         }
         if (tiptool(kind)) {
-            for (usize index = 0; index < state->tips.size(); ++index) {
+            for (usize index{0}; index < state->tips.size(); ++index) {
                 addhit(state, tiprow(*state, static_cast<u8>(index)), HitKind::kTip,
                        static_cast<u8>(index), 165);
             }
@@ -429,7 +429,7 @@ void tooltick(GuiState *state) {
     if (!coveragetool(toolkind(*state))) {
         closebrush(state);
     }
-    const f32 target = state->brush_open ? 1.0F : 0.0F;
+    const f32 target{state->brush_open ? 1.0F : 0.0F};
     if (state->brush_t < target) {
         state->brush_t = std::min(target, state->brush_t + 0.18F);
     } else if (state->brush_t > target) {
@@ -515,8 +515,8 @@ void toolup(GuiState *state) { state->moving_brush = false; }
 
 void tooldraw(const GuiState &state, DrawList *draws) {
     const ToolKind kind = toolkind(state);
-    const b8 show_tips = tiptool(kind);
-    const b8 show_coverage = coveragetool(kind);
+    const b8 show_tips{tiptool(kind)};
+    const b8 show_coverage{coveragetool(kind)};
 
     drawrect(draws, state.layout.toolbar, Tone::kWhite);
     drawstroke(draws, state.layout.toolbar, Tone::kBlack);
@@ -537,9 +537,9 @@ void tooldraw(const GuiState &state, DrawList *draws) {
                  Tone::kBlack);
     }
 
-    for (usize index = 0; index < state.tools.size(); ++index) {
+    for (usize index{0}; index < state.tools.size(); ++index) {
         const Tool &tool = state.tools[index];
-        const f32 row_y = state.layout.tools.y + static_cast<f32>(index) * 24.0F;
+        const f32 row_y{state.layout.tools.y + static_cast<f32>(index) * 24.0F};
         const Rect row = {
             .x = state.layout.tools.x,
             .y = row_y,
@@ -548,19 +548,19 @@ void tooldraw(const GuiState &state, DrawList *draws) {
         };
         const b8 hot_row = state.hot_kind == HitKind::kTool && state.hot_index == index;
         const b8 selected = tool.selected != 0;
-        const b8 inverted = selected || hot_row;
+        const b8 inverted{selected || hot_row};
         if (inverted) {
             drawrect(draws, row, Tone::kBlack);
         }
-        const f32 icon_x = row.x + std::max(0.0F, (row.width - 12.0F) * 0.5F);
+        const f32 icon_x{row.x + std::max(0.0F, (row.width - 12.0F) * 0.5F)};
         drawicon(draws, toolicon(tool.kind), icon_x, row.y + 4.0F,
                  inverted ? Tone::kWhite : Tone::kBlack, 1.5F);
     }
 
     if (show_tips) {
-        for (usize index = 0; index < state.tips.size(); ++index) {
+        for (usize index{0}; index < state.tips.size(); ++index) {
             const Tip &tip = state.tips[index];
-            const f32 row_y = state.layout.tips.y + static_cast<f32>(index) * 24.0F;
+            const f32 row_y{state.layout.tips.y + static_cast<f32>(index) * 24.0F};
             const Rect row = {
                 .x = state.layout.tips.x,
                 .y = row_y,
@@ -569,7 +569,7 @@ void tooldraw(const GuiState &state, DrawList *draws) {
             };
             const b8 hot_row = state.hot_kind == HitKind::kTip && state.hot_index == index;
             const b8 selected = tip.selected != 0;
-            const b8 inverted = selected || hot_row;
+            const b8 inverted{selected || hot_row};
             if (inverted) {
                 drawrect(draws, row, Tone::kBlack);
             }
@@ -580,7 +580,7 @@ void tooldraw(const GuiState &state, DrawList *draws) {
 
     if (show_coverage) {
         const b8 hot = state.hot_kind == HitKind::kBrushButton;
-        const b8 active = brushvisible(state);
+        const b8 active{brushvisible(state)};
         if (hot || active) {
             drawrect(draws, state.layout.brush_button, active ? Tone::kBlack : Tone::kLight);
             if (hot && !active) {
@@ -601,7 +601,7 @@ void toolpopupdraw(const GuiState &state, DrawList *draws) {
     }
 
     drawplane(draws, DrawPlane::kMenu);
-    const f32 t = smooth(state.brush_t);
+    const f32 t{smooth(state.brush_t)};
     const Rect panel = state.layout.brush_panel;
     drawrect(
         draws,
@@ -640,7 +640,7 @@ void toolpopupdraw(const GuiState &state, DrawList *draws) {
             .height = 3.0F,
         };
         drawrect(draws, track, Tone::kMid);
-        const f32 knob_x = track.x + (static_cast<f32>(state.cursize) * (track.width / 7.0F));
+        const f32 knob_x{track.x + (static_cast<f32>(state.cursize) * (track.width / 7.0F))};
         drawrect(draws, {.x = knob_x - 3.0F, .y = track.y - 3.0F, .width = 7.0F, .height = 8.0F},
                  Tone::kBlack);
     }
@@ -650,7 +650,7 @@ void toolpopupdraw(const GuiState &state, DrawList *draws) {
     }
 
     if (state.brush_t > 0.36F) {
-        for (usize index = 0; index < state.coverages.size(); ++index) {
+        for (usize index{0}; index < state.coverages.size(); ++index) {
             const Coverage &coverage = state.coverages[index];
             Rect hit = coveragehit(state, static_cast<u8>(index));
             hit.y -= (1.0F - t) * 4.0F;
@@ -673,8 +673,8 @@ void toolpopupdraw(const GuiState &state, DrawList *draws) {
     if (state.brush_t > 0.40F) {
         drawtext(draws, "tip", panel.x + 6.0F, panel.y + kTipLabelY, Tone::kBlack);
     }
-    for (usize index = 0; index < state.tips.size(); ++index) {
-        const f32 threshold = 0.28F + (static_cast<f32>(index) * 0.045F);
+    for (usize index{0}; index < state.tips.size(); ++index) {
+        const f32 threshold{0.28F + (static_cast<f32>(index) * 0.045F)};
         if (state.brush_t < threshold) {
             continue;
         }

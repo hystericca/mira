@@ -105,10 +105,10 @@ constexpr std::array<SourceGlyph, kFontCount> kSourceGlyphs = {{
 }};
 
 [[nodiscard]] constexpr auto widen(u32 bits) -> u32 {
-    u32 out = 0;
-    for (u32 x = 0; x < kFontWidthPixels; ++x) {
-        const u32 source_x = (x * 6U) / kFontWidthPixels;
-        const u32 source_bit = (bits >> (5U - source_x)) & 1U;
+    u32 out{0};
+    for (u32 x{0}; x < kFontWidthPixels; ++x) {
+        const u32 source_x{(x * 6U) / kFontWidthPixels};
+        const u32 source_bit{(bits >> (5U - source_x)) & 1U};
         out |= source_bit << ((kFontWidthPixels - 1U) - x);
     }
     return out;
@@ -117,9 +117,9 @@ constexpr std::array<SourceGlyph, kFontCount> kSourceGlyphs = {{
 [[nodiscard]] constexpr auto makefont() -> Font {
     Font result = {};
     result.metrics = {kFontFirst, kFontCount, kFontWidthPixels, kFontHeightPixels};
-    for (u32 glyph = 0; glyph < kFontCount; ++glyph) {
+    for (u32 glyph{0}; glyph < kFontCount; ++glyph) {
         result.glyphs[glyph].metrics = {kFontWidthPixels, kFontHeightPixels, kFontAscentPixels, 0U};
-        for (u32 row = 0; row < kFontHeightPixels; ++row) {
+        for (u32 row{0}; row < kFontHeightPixels; ++row) {
             result.glyphs[glyph].rows[row] = widen(kSourceGlyphs[glyph][row]);
         }
     }

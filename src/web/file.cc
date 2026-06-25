@@ -159,7 +159,7 @@ namespace {
 
 [[nodiscard]] auto sample_layer(const u8 *layers, usize layer_index, usize layer_bytes,
                                 u32 bytes_per_row, u32 x, u32 y) -> f32 {
-    const usize offset = (layer_index * layer_bytes) + (static_cast<usize>(y) * bytes_per_row) + x;
+    const usize offset{(layer_index * layer_bytes) + (static_cast<usize>(y) * bytes_per_row) + x};
     return static_cast<f32>(layers[offset]) / 255.0F;
 }
 
@@ -172,23 +172,23 @@ void Web::install_file_import() { g_web_app = this; }
 void Web::open_image_picker() { mira_open_image_picker(gui_.document.width, gui_.document.height); }
 
 void Web::export_png() {
-    const u32 document_width = static_cast<u32>(std::max(1, gui_.document.width));
-    const u32 document_height = static_cast<u32>(std::max(1, gui_.document.height));
-    const usize layer_count = gui_.layers.size();
+    const u32 document_width{static_cast<u32>(std::max(1, gui_.document.width))};
+    const u32 document_height{static_cast<u32>(std::max(1, gui_.document.height))};
+    const usize layer_count{gui_.layers.size()};
     if (layer_count == 0 || device_ == nullptr || queue_ == nullptr || instance_ == nullptr ||
         layer_texture_ == nullptr) {
         mira_export_failed();
         return;
     }
 
-    const u32 bytes_per_row = align_to(document_width, 256U);
-    const usize layer_bytes = static_cast<usize>(bytes_per_row) * document_height;
-    constexpr usize kNoReadSlot = std::numeric_limits<usize>::max();
+    const u32 bytes_per_row{align_to(document_width, 256U)};
+    const usize layer_bytes{static_cast<usize>(bytes_per_row) * document_height};
+    constexpr usize kNoReadSlot{std::numeric_limits<usize>::max()};
     std::array<usize, kMaxLayers> read_slot_by_layer = {};
     read_slot_by_layer.fill(kNoReadSlot);
     std::array<usize, kMaxLayers> read_layers = {};
-    usize read_count = 0;
-    for (usize index = 0; index < layer_count; ++index) {
+    usize read_count{0};
+    for (usize index{0}; index < layer_count; ++index) {
         const Layer &layer = gui_.layers[index];
         if (!layervisible(layer) || layer.kind == LayerKind::kBackground) {
             continue;
@@ -200,26 +200,25 @@ void Web::export_png() {
 
     const auto compose = [&](const u8 *mapped) {
         std::vector<u8> rgba(static_cast<usize>(document_width) * document_height * 4U);
-        for (u32 y = 0; y < document_height; ++y) {
-            for (u32 x = 0; x < document_width; ++x) {
-                f32 luma = 0.0F;
-                for (usize step = 0; step < layer_count; ++step) {
-                    const usize layer_index = layer_count - 1U - step;
+        for (u32 y{0}; y < document_height; ++y) {
+            for (u32 x{0}; x < document_width; ++x) {
+                f32 luma{0.0F};
+                for (usize step{0}; step < layer_count; ++step) {
+                    const usize layer_index{layer_count - 1U - step};
                     const Layer &layer = gui_.layers[layer_index];
                     if (!layervisible(layer)) {
                         continue;
                     }
-                    const f32 opacity = static_cast<f32>(layer.opacity_u8) / 255.0F;
+                    const f32 opacity{static_cast<f32>(layer.opacity_u8) / 255.0F};
                     if (layer.kind == LayerKind::kBackground) {
                         luma = mix(luma, 1.0F, opacity);
                         continue;
                     }
-                    const usize read_slot = read_slot_by_layer[layer_index];
+                    const usize read_slot{read_slot_by_layer[layer_index]};
                     if (mapped == nullptr || read_slot == kNoReadSlot) {
                         continue;
                     }
-                    const f32 stored =
-                        sample_layer(mapped, read_slot, layer_bytes, bytes_per_row, x, y);
+                    const f32 stored{sample_layer(mapped, read_slot, layer_bytes, bytes_per_row, x, y)};
                     if (layer.kind == LayerKind::kImage) {
                         luma = mix(luma, stored, opacity);
                     } else {
@@ -227,7 +226,7 @@ void Web::export_png() {
                     }
                 }
                 const u8 value = std::clamp(luma, 0.0F, 1.0F) >= bayer4(x, y) ? 255U : 0U;
-                const usize out = ((static_cast<usize>(y) * document_width) + x) * 4U;
+                const usize out{((static_cast<usize>(y) * document_width) + x) * 4U};
                 rgba[out + 0U] = value;
                 rgba[out + 1U] = value;
                 rgba[out + 2U] = value;
@@ -243,7 +242,7 @@ void Web::export_png() {
         return;
     }
 
-    const usize read_size = layer_bytes * read_count;
+    const usize read_size{layer_bytes * read_count};
 
     wgpu::BufferDescriptor buffer_descriptor = {};
     buffer_descriptor.size = read_size;
@@ -259,7 +258,7 @@ void Web::export_png() {
         mira_export_failed();
         return;
     }
-    for (usize read_slot = 0; read_slot < read_count; ++read_slot) {
+    for (usize read_slot{0}; read_slot < read_count; ++read_slot) {
         const Layer &layer = gui_.layers[read_layers[read_slot]];
         wgpu::TexelCopyTextureInfo source = {};
         source.texture = layer_texture_;
@@ -308,9 +307,9 @@ void Web::export_png() {
 }
 
 auto Web::upload_layer(u8 slot, const u8 *pixels, usize byte_count) -> b8 {
-    const u32 document_width = static_cast<u32>(std::max(1, gui_.document.width));
-    const u32 document_height = static_cast<u32>(std::max(1, gui_.document.height));
-    const usize expected = static_cast<usize>(document_width) * static_cast<usize>(document_height);
+    const u32 document_width{static_cast<u32>(std::max(1, gui_.document.width))};
+    const u32 document_height{static_cast<u32>(std::max(1, gui_.document.height))};
+    const usize expected{static_cast<usize>(document_width) * static_cast<usize>(document_height)};
     if (slot >= kMaxLayers || layer_texture_ == nullptr || pixels == nullptr ||
         byte_count < expected) {
         return false;
@@ -337,7 +336,7 @@ void Web::import_image_ready(i32 width, i32 height, const u8 *pixels, usize byte
     if (width != gui_.document.width || height != gui_.document.height) {
         return;
     }
-    const u8 index = layerimage(&gui_, name);
+    const u8 index{layerimage(&gui_, name)};
     if (index == kNoLayer || index >= gui_.layers.size()) {
         return;
     }

@@ -3,3 +3,4 @@ node_modules/
 compile_commands.json
 *.trace
 .DS_Store
+.cache

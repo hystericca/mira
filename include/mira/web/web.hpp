@@ -20,45 +20,45 @@ class Web {
 
   private:
     struct CanvasPixelSize {
-        u32 width = 1;
-        u32 height = 1;
+        u32 width{1};
+        u32 height{1};
     };
 
     struct MousePoint {
-        i32 x = 0;
-        i32 y = 0;
-        b8 ok = false;
+        i32 x{0};
+        i32 y{0};
+        b8 ok{false};
     };
 
     struct Frame {
-        f32 width = 1.0F;
-        f32 height = 1.0F;
-        f32 screen_width = 1.0F;
-        f32 screen_height = 1.0F;
-        u32 rect_count = 0;
-        u32 glyph_count = 0;
-        u32 icon_count = 0;
-        u32 layer_count = 0;
-        f32 document_x = 0.0F;
-        f32 document_y = 0.0F;
-        f32 document_x1 = 1.0F;
-        f32 document_y1 = 1.0F;
-        f32 viewport_x = 0.0F;
-        f32 viewport_y = 0.0F;
-        f32 viewport_x1 = 1.0F;
-        f32 viewport_y1 = 1.0F;
-        f32 document_width = 1.0F;
-        f32 document_height = 1.0F;
-        f32 _pad0 = 0.0F;
-        f32 _pad1 = 0.0F;
+        f32 width{1.0F};
+        f32 height{1.0F};
+        f32 screen_width{1.0F};
+        f32 screen_height{1.0F};
+        u32 rect_count{0};
+        u32 glyph_count{0};
+        u32 icon_count{0};
+        u32 layer_count{0};
+        f32 document_x{0.0F};
+        f32 document_y{0.0F};
+        f32 document_x1{1.0F};
+        f32 document_y1{1.0F};
+        f32 viewport_x{0.0F};
+        f32 viewport_y{0.0F};
+        f32 viewport_x1{1.0F};
+        f32 viewport_y1{1.0F};
+        f32 document_width{1.0F};
+        f32 document_height{1.0F};
+        f32 _pad0{0.0F};
+        f32 _pad1{0.0F};
     };
     static_assert(sizeof(Frame) == 80);
 
     struct LayerGpu {
-        f32 flags = 0.0F;
-        f32 opacity = 1.0F;
-        f32 layer_slot = 0.0F;
-        f32 kind = 0.0F;
+        f32 flags{0.0F};
+        f32 opacity{1.0F};
+        f32 layer_slot{0.0F};
+        f32 kind{0.0F};
     };
     static_assert(sizeof(LayerGpu) == 16);
 
@@ -129,19 +129,19 @@ class Web {
     Screen screen_;
     wgpu::TextureFormat surface_format_ = wgpu::TextureFormat::BGRA8Unorm;
     wgpu::PresentMode present_mode_ = wgpu::PresentMode::Fifo;
-    u32 width_ = 0;
-    u32 height_ = 0;
-    f32 css_width_ = 1.0F;
-    f32 css_height_ = 1.0F;
-    u32 surface_error_count_ = 0;
-    u32 surface_skip_count_ = 0;
-    u32 uncaptured_error_count_ = 0;
-    u8 startup_frames_ = 8;
-    b8 needs_configure_ = true;
-    b8 needs_canvas_read_ = true;
-    b8 draw_dirty_ = true;
-    b8 pending_export_ = false;
-    b8 device_lost_ = false;
+    u32 width_{0};
+    u32 height_{0};
+    f32 css_width_{1.0F};
+    f32 css_height_{1.0F};
+    u32 surface_error_count_{0};
+    u32 surface_skip_count_{0};
+    u32 uncaptured_error_count_{0};
+    u8 startup_frames_{8};
+    b8 needs_configure_{true};
+    b8 needs_canvas_read_{true};
+    b8 draw_dirty_{true};
+    b8 pending_export_{false};
+    b8 device_lost_{false};
 };
 
 } // namespace mira

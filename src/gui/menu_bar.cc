@@ -63,14 +63,14 @@ void doaction(GuiState *state, MenuAction action) {
 }
 
 void menulayout(GuiState *state) {
-    f32 menu_x = 4.0F;
+    f32 menu_x{4.0F};
     for (const MenuItem item : kMenuItems) {
         const Rect rect = menurect(item.text, menu_x);
         addhit(state, rect, HitKind::kMenu, item.index, 100);
         menu_x += rect.width + 1.0F;
     }
     const std::span<const MenuCommand> commands = menucommands(state->active_menu);
-    for (u8 index = 0; index < static_cast<u8>(commands.size()); ++index) {
+    for (u8 index{0}; index < static_cast<u8>(commands.size()); ++index) {
         addhit(state, menucmdrect(state->active_menu, index), HitKind::kMenuAction, index, 120);
     }
 }
@@ -102,7 +102,7 @@ void menudraw(const GuiState &state, DrawList *draws) {
                 .height = 1.0F},
                Tone::kBlack);
 
-    f32 menu_x = 4.0F;
+    f32 menu_x{4.0F};
     for (const MenuItem item : kMenuItems) {
         const Rect rect = menurect(item.text, menu_x);
         const b8 active = state.active_menu == item.index;
@@ -134,7 +134,7 @@ void menudraw(const GuiState &state, DrawList *draws) {
     };
     drawrect(draws, menu, Tone::kWhite);
     drawstroke(draws, menu, Tone::kBlack);
-    for (u8 index = 0; index < static_cast<u8>(commands.size()); ++index) {
+    for (u8 index{0}; index < static_cast<u8>(commands.size()); ++index) {
         const Rect item = menucmdrect(state.active_menu, index);
         const b8 hot = state.hot_kind == HitKind::kMenuAction && state.hot_index == index;
         if (hot) {
